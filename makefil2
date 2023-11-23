@@ -1,0 +1,12 @@
+all     : DLLSIST
+rebuild : clean all
+clean   :
+         $(FUP) purge *o!
+
+OBJS   := CONVERTO FILELIBO LCONFO LOGUTILO MSGO PROCESSO TOKENO
+
+%O: %C %H
+        $(CC) /in $<, out $S.#CC.$@/ $@ $(CFLAGS)
+
+DLLSIST : $(OBJS)
+        $(LD) /out $S.#LD.$@/ $(LIBS) $(LFLAGS) $^ -o $@

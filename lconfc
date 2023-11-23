@@ -1,0 +1,212 @@
+/* LCONFC INICIO */
+
+/*
+    LCONF
+    Funciones para la carga de los datos del archivo LCONF
+    * Definir en el .h lo labels de los assigns y params que se quieran obtener
+*/
+
+#define _IN_LCONF_
+#include "LCONFh"
+#undef _IN_LCONF_
+
+#include "flags.h"
+
+#define extptr /* definir antes de incluir xncext*/
+#include <xncext>
+
+#define LCONF_ACCESS_EXACT_L     1
+#define LCONF_ACCESS_GENERIC_L   2
+
+#include <stdlib.h>
+#include <string.h>
+
+char LCONF_static_message_string[ 4096 ];
+
+short LCONF_GetAssigns( const char* sys_name,
+                        const char* lconf_filename,
+                        LCONF_ASSIGN* assigns ) {
+    short i;
+    short rc;
+    short len1, len2;
+    short lconf_fn;
+    short lconf_error;
+    char lconf_msg[ 1024 ];
+
+    /* Abro el archivo */
+    rc = lconf_initialize( (char*)lconf_filename,
+                           (short)strlen( lconf_filename ),
+                           lconf_msg,
+                           &lconf_fn,
+                           &lconf_error );
+    if ( rc != 0 ) {
+        return  -1;
+    }
+    for ( i = 0; assigns[ i ].assign != NULL; i++ ) {
+        rc = lconf_get_assigninfo( lconf_fn,
+                                  assigns[ i ].assign,
+                                  (short)strlen( assigns[ i ].assign ),
+                                  LCONF_ACCESS_GENERIC_L,
+                                  (char*)sys_name,
+                                  (char*)assigns[ i ].file_name,
+                                  &len1,
+                                  (char*)assigns[ i ].tplt_name,
+                                  &len2,
+                                  &lconf_error );
+        if ( rc == 0 ) {
+            /* por las dudas le pongo el null al final */
+            assigns[ i ].file_name[ len1 ] = '\0';
+            assigns[ i ].tplt_name[ len2 ] = '\0';
+        }
+        else {
+            if ( assigns[ i ].file_name_default &&
+                 strlen( assigns[ i ].file_name_default ) ) {
+                strncpy( assigns[ i ].file_name,
+                         assigns[ i ].file_name_default,
+                         FILENAME_MAX );
+            }
+            else {
+                strcpy( assigns[ i ].file_name, "NO DEFINIDO" );
+            }
+            if ( assigns[ i ].tplt_name_default &&
+                 strlen( assigns[ i ].tplt_name_default ) ) {
+                strncpy( assigns[ i ].tplt_name,
+                         assigns[ i ].tplt_name_default,
+                         FILENAME_MAX );
+            }
+            else {
+                strcpy( assigns[ i ].tplt_name, "NO DEFINIDO" );
+            }
+        }
+    }
+    lconf_close( lconf_fn );
+    return 0;
+}
+
+short LCONF_GetParams( const char* sys_name,
+                       const char* lconf_filename,
+                       LCONF_PARAM* params ) {
+    short i;
+    short rc;
+    short len1;
+    short lconf_fn;
+    short lconf_error;
+    char lconf_msg[ 1024 ];
+
+    /* Abro el archivo */
+    rc = lconf_initialize( (char*)lconf_filename,
+                           (short)strlen( lconf_filename ),
+                           lconf_msg,
+                           &lconf_fn,
+                           &lconf_error );
+    if ( rc != 0 ) {
+        return  -1;
+    }
+    for ( i = 0; params[ i ].param != NULL; i++ ) {
+        rc = lconf_get_paraminfo( lconf_fn,
+                                 (char*)params[ i ].param,
+                                 (short)strlen( params[ i ].param ),
+                                 LCONF_ACCESS_GENERIC_L,
+                                 (char*)sys_name,
+                                 (char*)params[ i ].param_txt,
+                                 &len1,
+                                 &lconf_error );
+        if ( rc == 0 ) {
+            /* por las dudas le pongo el null al final */
+            params[ i ].param_txt[ len1 ] = '\0';
+        }
+        else {
+            if ( strlen( params[ i ].param_txt_default ) ) {
+                strncpy( params[ i ].param_txt, params[ i ].param_txt_default,
+                        STARTUP_PARAM_SIZE_L );
+            }
+            else {
+                strcpy( params[ i ].param_txt, "NO DEFINIDO" );
+            }
+
+
+        }
+    }
+    lconf_close( lconf_fn );
+    return 0;
+}
+
+const char* LCONF_Param( const char* key, LCONF_PARAM* params ) {
+    int i;
+
+    for ( i = 0; params[ i ].param != NULL; i++ ) {
+        if ( !strcmp( key, params[ i ].param ) ) {
+            return (const char*)&params[ i ].param_txt[ 0 ];
+        }
+    }
+    return NULL;
+}
+
+const char* LCONF_Assign_Filename( const char* key, LCONF_ASSIGN* assigns ) {
+    int i;
+
+    for ( i = 0; assigns[ i ].assign != NULL; i++ ) {
+        if ( !strcmp( key, assigns[ i ].assign ) ) {
+            return (const char*)&assigns[ i ].file_name[ 0 ];
+        }
+    }
+    return NULL;
+}
+
+const char* LCONF_Assign_Template( const char* key, LCONF_ASSIGN* assigns ) {
+    int i;
+
+    for ( i = 0; assigns[ i ].assign != NULL; i++ ) {
+        if ( !strcmp( key, assigns[ i ].assign ) ) {
+            return (const char*)&assigns[ i ].tplt_name[ 0 ];
+        }
+    }
+    return NULL;
+}
+
+
+const char* LCONF_Error( void ) {
+    return (const char*)&LCONF_static_message_string[ 0 ];
+}
+
+short LCONF_AddAssign( const char* sys_name,
+                      const char* lconf_filename,
+                      const char* assign,
+                      const char* file_name_default,
+                      const char* tplt_name_default,
+                      LCONF_ASSIGN* assigns ) {
+    short i;
+
+    for ( i = 0; assigns[ i ].assign; i++ ) {
+        /* Si el assign ya est� no lo vuelvo a cargar */
+        if ( !strcmp( assigns[ i ].assign, assign ) ) return 0;
+    }
+
+    assigns[ i ].assign = (char*)assign;
+    assigns[ i ].file_name_default = (char*)file_name_default;
+    assigns[ i ].tplt_name_default = (char*)tplt_name_default;
+    assigns[ i + 1 ].assign = NULL;
+
+    return LCONF_GetAssigns( sys_name, lconf_filename, assigns );
+}
+
+short LCONF_AddParam( const char* sys_name,
+                      const char* lconf_filename,
+                      const char* param,
+                      const char* param_txt_default,
+                      LCONF_PARAM* params ) {
+    short i;
+
+    for ( i = 0; params[ i ].param; i++ ) {
+        /* si el parametro ya est� no lo vuelvo a cargar */
+        if ( !strcmp( params[ i ].param, param ) ) return 0;
+    }
+
+    params[ i ].param = (char*)param;
+    params[ i ].param_txt_default = (char*)param_txt_default;
+    params[ i + 1 ].param = NULL;
+
+    return LCONF_GetParams( sys_name, lconf_filename, params );
+}
+
+/* LCONFC FIN */

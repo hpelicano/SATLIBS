@@ -1,0 +1,852 @@
+#include "token.h"
+#include "flags.h"
+#include "convert.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+tkn_area_def* tkn_area_get( void* buf, short buf_ofst, short buf_len,
+                            short frmt,
+                            short userdata, short* stat ) {
+    char* hdr_ptr_s = NULL;
+    char* tkn_hdr_ptr_s = NULL;
+    short* hdr_ptr_i = NULL;
+    short* tkn_hdr_ptr_i = NULL;
+    char* buf_s = (char*)buf;
+    short udata_len = 0;
+    short core_len = 0;
+    short num_tkns = 0;
+    short tkn_ttl_len = 0;
+    short i = 0;
+    short ofst = 0;
+    short hdr_tkn_present = false;
+    tkn_node_def* tkn_node = NULL;
+    tkn_area_def* tkn_area = NULL;
+
+    if ( userdata ) {
+        hdr_ptr_s = &buf_s[ buf_ofst ];
+        hdr_ptr_i = (short*)hdr_ptr_s;
+
+        udata_len = *hdr_ptr_i;
+
+        if ( udata_len % 2 ) {
+            udata_len++;
+
+            hdr_ptr_s[ udata_len + 1 ] = ' ';
+            *hdr_ptr_i = udata_len;
+
+            core_len = buf_ofst + udata_len + 1;
+
+            hdr_ptr_s = &buf_s[ core_len + 1 ];
+        }
+        else {
+            core_len = buf_ofst + udata_len + 2;
+            hdr_ptr_s = &buf_s[ core_len ];
+        }
+    }
+    else {
+        core_len = buf_ofst;
+        hdr_ptr_s = &buf_s[ core_len ];
+    }
+
+    hdr_ptr_i = (short*)hdr_ptr_s;
+
+    if ( buf_ofst > buf_len ) {
+        *stat = tkn_addr_oob_l;
+        return NULL;
+    }
+
+    if ( buf_len == buf_ofst ||
+         ( buf_len > buf_ofst &&
+           userdata &&
+           core_len >= buf_len ) ) {
+        // no hay espacio para almacenar tokens
+        *stat = tkn_no_space_avail_l;
+        return NULL;
+    }
+    else
+        if ( *hdr_ptr_s != '&' ) {
+            hdr_tkn_present = false;
+        }
+        else {
+            hdr_tkn_present = true;
+        }
+
+    tkn_area = (tkn_area_def*)malloc( sizeof( tkn_area_def ) );
+    if ( tkn_area == NULL ) {
+        *stat = tkn_err_mem_alloc_l;
+        return NULL;
+    }
+
+    tkn_area->format = frmt;
+    tkn_area->header = hdr_ptr_s;
+    tkn_area->hdr_present = hdr_tkn_present;
+    tkn_area->buf_ofst = buf_ofst;
+    tkn_area->max_buf_len = buf_len;
+    tkn_area->core_len = core_len;
+    tkn_area->tkn_list = NULL;
+
+    if ( !hdr_tkn_present ) {
+        *stat = tkn_not_exist_l;
+        return tkn_area;
+    }
+
+    if ( frmt == binary_frmt_l ) {
+        num_tkns = hdr_ptr_i[ binary_hdr_cnt_posn_l ];
+        tkn_ttl_len = hdr_ptr_i[ binary_hdr_lgth_posn_l ];
+    }
+    else {
+        num_tkns = (short)CONVERT_GetInt( &hdr_ptr_s[ ascii_hdr_cnt_posn_l ],
+                                          ascii_hdr_cnt_lgth_l );
+        tkn_ttl_len = (short)CONVERT_GetInt(
+                                        &hdr_ptr_s[ ascii_hdr_lgth_posn_l ],
+                                        ascii_hdr_lgth_lgth_l );
+    }
+
+    if ( num_tkns <= 1 ) {
+        // El mensaje solo tiene el header, pero no tiene tokens
+        *stat = tkn_not_exist_l;
+        return tkn_area;
+    }
+
+    if ( frmt == binary_frmt_l ) {
+        tkn_hdr_ptr_s = &hdr_ptr_s[ binary_hdr_lgth_l ];
+    }
+    else {
+        tkn_hdr_ptr_s = &hdr_ptr_s[ ascii_hdr_lgth_l ];
+    }
+    tkn_hdr_ptr_i = (short*)tkn_hdr_ptr_s;
+
+    for ( i = 0; i < num_tkns - 1; i++ ) {
+        tkn_node = NULL;
+
+        if ( frmt == binary_frmt_l ) {
+            tkn_node = tkn_node_create( tkn_hdr_ptr_s,
+                                    &tkn_hdr_ptr_s[ binary_tkn_hdr_lgth_l ] );
+        }
+        else {
+            tkn_node = tkn_node_create( tkn_hdr_ptr_s,
+                                    &tkn_hdr_ptr_s[ ascii_tkn_hdr_lgth_l ] );
+        }
+
+        if ( tkn_node == NULL ) {
+            *stat = tkn_err_mem_alloc_l;
+            free( tkn_area );
+            return NULL;
+        }
+
+        tkn_node_push( &tkn_area->tkn_list, tkn_node );
+
+        if ( frmt == binary_frmt_l ) {
+            ofst = tkn_hdr_ptr_i[ binary_hdr_lgth_posn_l ] +
+                binary_tkn_hdr_lgth_l;
+        }
+        else {
+            ofst = (short)CONVERT_GetInt(
+                                   &tkn_hdr_ptr_s[ ascii_tkn_hdr_lgth_posn_l ],
+                                   ascii_tkn_hdr_lgth_lgth_l );
+            ofst += ascii_tkn_hdr_lgth_l;
+        }
+
+        tkn_hdr_ptr_s = &tkn_hdr_ptr_s[ ofst ];
+        tkn_hdr_ptr_i = (short*)tkn_hdr_ptr_s;
+    }
+
+    *stat = tkn_compl_ok_l;
+    return tkn_area;
+}
+
+tkn_node_def* tkn_node_create( void* thdr, char* tdata_ptr ) {
+    token_def* newtkn = (token_def*)malloc( sizeof( token_def ) );
+    tkn_node_def* newnode = (tkn_node_def*)
+        malloc( sizeof( tkn_node_def ) );
+
+    if ( newtkn == NULL || newnode == NULL ) {
+        return NULL;
+    }
+
+    newtkn->hdr = thdr;
+    newtkn->data = tdata_ptr;
+    newnode->tkn = newtkn;
+    newnode->next = NULL;
+
+    return newnode;
+}
+
+void tkn_node_push( tkn_node_def** head, tkn_node_def* tk ) {
+    tkn_node_def* temp = NULL;
+
+    if ( *head == NULL ) {
+        *head = tk;
+        return;
+    }
+
+    temp = *head;
+    while ( temp->next != NULL ) {
+        temp = temp->next;
+    }
+
+    temp->next = tk;
+}
+
+void* tkn_get( tkn_area_def* area, const char* tkn_id, short* stat,
+               short* tkn_len ) {
+    short frmt = 0;
+    short num_tkns = 0;
+    char* h_tkn_id = NULL;
+    short h_tkn_len = 0;
+    tkn_node_def* head = NULL;
+
+    if ( area == NULL ) {
+        *stat = tkn_area_not_init_l;
+        return NULL;
+    }
+
+    frmt = area->format;
+    if ( frmt == binary_frmt_l ) {
+        num_tkns = ( (hdr_tkn_area_binary_def*)area->header )->count;
+    }
+    else {
+        num_tkns =
+            (short)CONVERT_GetInt(
+                (char*)&( (hdr_tkn_area_ascii_def*)area->header )->count,
+                ascii_hdr_cnt_lgth_l );
+    }
+
+    if ( !area->hdr_present || num_tkns <= 1 ) {
+        if ( _arg_present( tkn_len ) ) {
+            *tkn_len = 0;
+        }
+        *stat = tkn_not_exist_l;
+        return NULL;
+    }
+
+    head = area->tkn_list;
+    while ( head != NULL ) {
+        if ( frmt == binary_frmt_l ) {
+            h_tkn_id = ( (tkn_hdr_binary_def*)head->tkn->hdr )->id;
+            h_tkn_len = ( (tkn_hdr_binary_def*)head->tkn->hdr )->len;
+        }
+        else {
+            h_tkn_id = ( (tkn_hdr_ascii_def*)head->tkn->hdr )->id;
+            h_tkn_len = (short)
+                CONVERT_GetInt( (char*)&
+                                ( (tkn_hdr_ascii_def*)head->tkn->hdr )->len,
+                                ascii_tkn_hdr_lgth_lgth_l );
+        }
+        if ( memcmp( h_tkn_id, tkn_id, 2 ) == 0 ) {
+            if ( _arg_present( tkn_len ) ) {
+                *tkn_len = h_tkn_len;
+            }
+            *stat = tkn_compl_ok_l;
+            return ( head->tkn->data );
+        }
+        head = head->next;
+    }
+
+    if ( _arg_present( tkn_len ) ) {
+        *tkn_len = 0;
+    }
+    *stat = tkn_not_exist_l;
+    return NULL;
+}
+
+tkn_node_def* tkn_node_get( tkn_area_def* area, const char* tkn_id,
+                            short* stat, short* pos, short* ofst ) {
+    short frmt = 0;
+    short i = 0;
+    short num_tkns = 0;
+    char* h_tkn_id = NULL;
+    tkn_node_def* head = NULL;
+
+    if ( _arg_present( pos ) ) {
+        *pos = 0;
+    }
+    if ( _arg_present( ofst ) ) {
+        *ofst = 0;
+    }
+
+    if ( area == NULL ) {
+        *stat = tkn_area_not_init_l;
+        return NULL;
+    }
+
+    frmt = area->format;
+    if ( frmt == binary_frmt_l ) {
+        num_tkns = ( (hdr_tkn_area_binary_def*)area->header )->count;
+    }
+    else {
+        num_tkns = (short)
+            CONVERT_GetInt( (char*)&
+                            ( (hdr_tkn_area_ascii_def*)area->header )->count,
+                            ascii_hdr_cnt_lgth_l );
+    }
+
+    if ( !area->hdr_present || num_tkns <= 1 ) {
+        *stat = tkn_not_exist_l;
+        return NULL;
+    }
+
+    head = area->tkn_list;
+    while ( head != NULL ) {
+        if ( frmt == binary_frmt_l ) {
+            h_tkn_id = ( (tkn_hdr_binary_def*)head->tkn->hdr )->id;
+        }
+        else {
+            h_tkn_id = ( (tkn_hdr_ascii_def*)head->tkn->hdr )->id;
+        }
+        if ( memcmp( h_tkn_id, tkn_id, 2 ) == 0 ) {
+            if ( _arg_present( pos ) ) {
+                *pos = i;
+            }
+            if ( _arg_present( ofst ) ) {
+                *ofst = (short)
+                    ( (char*)head->tkn->hdr - (char*)area->header );
+            }
+            *stat = tkn_compl_ok_l;
+            return head;
+        }
+        head = head->next;
+        i++;
+    }
+
+    *stat = tkn_not_exist_l;
+    return NULL;
+}
+
+short tkn_add( tkn_area_def** area, const char* tkn_id,
+               void* tkn_ptr, short tkn_len ) {
+    tkn_node_def* node = NULL;
+    short ofst = 0;
+    short frmt = 0;
+    short temp = 0;
+    short stat = 0;
+    short check_len = 0;
+    short num_tkns = 0;
+    short tkn_ttl_len = 0;
+    char* hdr_ptr_s = NULL;
+    short* hdr_ptr_i = NULL;
+    char* tkn_hdr_ptr_s = NULL;
+    short* tkn_hdr_ptr_i = NULL;
+
+    if ( *area == NULL ) {
+        return tkn_area_not_init_l;
+    }
+
+    if ( tkn_len % 2 ) {
+        return tkn_addr_oob_l;
+    }
+
+    frmt = ( *area )->format;
+
+    if ( ( ( *area )->max_buf_len < ( *area )->buf_ofst ) ||
+         ( ( ( *area )->max_buf_len > ( *area )->buf_ofst ) &&
+           ( *area )->userdata &&
+           ( ( *area )->core_len > ( *area )->max_buf_len ) ) ) {
+        return tkn_addr_oob_l;
+    }
+
+    hdr_ptr_s = (char*)( *area )->header;
+    hdr_ptr_i = (short*)hdr_ptr_s;
+
+    if ( ( !( *area )->hdr_present &&
+           ( *area )->max_buf_len > ( *area )->buf_ofst ) ||
+         ( ( *area )->max_buf_len == ( *area )->buf_ofst ) ||
+         ( ( *area )->max_buf_len > ( *area )->buf_ofst &&
+           ( *area )->userdata &&
+           ( *area )->core_len == ( *area )->max_buf_len ) ) {
+        if ( frmt == binary_frmt_l ) {
+            check_len = ( *area )->core_len + tkn_len + binary_hdr_lgth_l +
+                binary_tkn_hdr_lgth_l;
+        }
+        else {
+            check_len = ( *area )->core_len + tkn_len + ascii_hdr_lgth_l +
+                ascii_tkn_hdr_lgth_l;
+        }
+
+        if ( check_len > ( *area )->max_buf_len ) {
+            return tkn_lmt_exceed_l;
+        }
+        //
+        // Inicializo el Header en el mensaje
+        //
+        if ( frmt == binary_frmt_l ) {
+            ofst = binary_hdr_lgth_l;
+            ( *area )->hdr_present = true;
+            memcpy( hdr_ptr_s, "& ", 2 );
+            hdr_ptr_i[ binary_hdr_cnt_posn_l ] = 1;
+            hdr_ptr_i[ binary_hdr_lgth_posn_l ] = binary_tkn_hdr_lgth_l;
+        }
+        else {
+            ofst = ascii_hdr_lgth_l;
+            ( *area )->hdr_present = true;
+            memcpy( hdr_ptr_s, "& 0000100012", ascii_hdr_lgth_l );
+        }
+    }
+    else {
+        if ( frmt == binary_frmt_l ) {
+            num_tkns = hdr_ptr_i[ binary_hdr_cnt_posn_l ];
+            tkn_ttl_len = hdr_ptr_i[ binary_hdr_lgth_posn_l ];
+        }
+        else {
+            num_tkns = (short)CONVERT_GetInt(
+                                            &hdr_ptr_s[ ascii_hdr_cnt_posn_l ],
+                                            ascii_hdr_cnt_lgth_l );
+            tkn_ttl_len = (short)CONVERT_GetInt(
+                                            &hdr_ptr_s[ ascii_hdr_lgth_posn_l ],
+                                            ascii_hdr_lgth_lgth_l );
+        }
+
+        check_len = ( *area )->core_len + tkn_len + binary_tkn_hdr_lgth_l +
+            tkn_ttl_len;
+
+        if ( check_len > ( *area )->max_buf_len ) {
+            return tkn_lmt_exceed_l;
+        }
+        //
+        // Chequeo si el token existe
+        //
+        stat = tkn_check_exist( ( *area )->tkn_list, tkn_id );
+        if ( stat != tkn_not_exist_l ) {
+            return stat;
+        }
+
+        ofst = tkn_ttl_len;
+    }
+    //
+    // Cargo el header del token
+    //
+    if ( frmt == binary_frmt_l ) {
+        tkn_hdr_ptr_s = &hdr_ptr_s[ ofst ];
+        tkn_hdr_ptr_i = (short*)tkn_hdr_ptr_s;
+
+        memcpy( tkn_hdr_ptr_s, "! ", 2 );
+        memcpy( &tkn_hdr_ptr_s[ tkn_hdr_id_posn_l ], tkn_id, 2 );
+        tkn_hdr_ptr_i[ binary_tkn_hdr_lgth_posn_l ] = tkn_len;
+
+        ofst = binary_tkn_hdr_lgth_l;
+    }
+    else {
+        tkn_hdr_ptr_s = &hdr_ptr_s[ ascii_hdr_lgth_l ];
+        tkn_hdr_ptr_i = (short*)tkn_hdr_ptr_s;
+
+        memcpy( tkn_hdr_ptr_s, "! ", 2 );
+        CONVERT_short_to_str( tkn_len,
+                              ascii_tkn_hdr_lgth_posn_l,
+                              ascii_tkn_hdr_lgth_lgth_l,
+                              tkn_hdr_ptr_s );
+        tkn_hdr_ptr_s[ ascii_tkn_hdr_rsvrd_posn_l ] = ' ';
+
+        ofst = ascii_tkn_hdr_lgth_l;
+    }
+    //
+    // Cargo los datos del token
+    //
+    memcpy( &tkn_hdr_ptr_s[ ofst ], tkn_ptr, tkn_len );
+    //
+    // Actualizo los valores del header del area
+    //
+    if ( frmt == binary_frmt_l ) {
+        hdr_ptr_i[ binary_hdr_cnt_posn_l ] += 1;
+        hdr_ptr_i[ binary_hdr_lgth_posn_l ] +=
+            ( tkn_len + binary_tkn_hdr_lgth_l );
+    }
+    else {
+        temp = (short)CONVERT_GetInt( &hdr_ptr_s[ ascii_hdr_cnt_posn_l ],
+                                      ascii_hdr_cnt_lgth_l );
+        CONVERT_short_to_str( temp + 1, ascii_hdr_cnt_posn_l,
+                              ascii_hdr_cnt_lgth_l, hdr_ptr_s );
+
+        temp = (short)CONVERT_GetInt( &hdr_ptr_s[ ascii_hdr_lgth_posn_l ],
+                                      ascii_hdr_lgth_lgth_l );
+        CONVERT_short_to_str( temp + tkn_len + ascii_tkn_hdr_lgth_l,
+                              ascii_hdr_lgth_posn_l,
+                              ascii_hdr_lgth_lgth_l, hdr_ptr_s );
+    }
+    //
+    // A esta altura, el token ya esta escrito en el mensaje
+    // Me falta agregarlo en la lista de TKN_AREA
+    //
+    node = tkn_node_create( tkn_hdr_ptr_s, &tkn_hdr_ptr_s[ ofst ] );
+    if ( node == NULL ) {
+        return tkn_err_mem_alloc_l;
+    }
+    tkn_node_push( &( *area )->tkn_list, node );
+
+    return tkn_compl_ok_l;
+}
+
+short tkn_check_exist( tkn_node_def* tkn_list, const char* tkn_id ) {
+    char* test_tkn_id = NULL;
+    tkn_node_def* node = tkn_list;
+
+    while ( node != NULL ) {
+        test_tkn_id = (char*)&node->tkn->hdr[ tkn_hdr_id_posn_l ];
+        if ( memcmp( test_tkn_id, tkn_id, 2 ) == 0 ) {
+            return tkn_exist_l;
+        }
+        node = node->next;
+    }
+
+    return tkn_not_exist_l;
+}
+
+char* tkn_node_get_id( tkn_node_def* node ) {
+    if ( node == NULL )
+        return NULL;
+
+    return ( &( (char*)node->tkn->hdr )[ tkn_hdr_id_posn_l ] );
+}
+
+short tkn_node_get_len( tkn_node_def* node, short frmt ) {
+    if ( node == NULL )
+        return NULL;
+
+    if ( frmt == binary_frmt_l ) {
+        return ( (tkn_hdr_binary_def*)node->tkn->hdr )->len;
+    }
+    else {
+        return (short)
+            CONVERT_GetInt( (char*)&
+                            ( (tkn_hdr_ascii_def*)node->tkn->hdr )->len,
+                            ascii_tkn_hdr_lgth_lgth_l );
+    }
+}
+
+void tkn_node_upd_len( tkn_node_def** node, short newlen, short frmt ) {
+    tkn_node_def* tkn_node = *node;
+    if ( tkn_node == NULL )
+        return;
+
+    if ( frmt == binary_frmt_l ) {
+        ( (tkn_hdr_binary_def*)tkn_node->tkn->hdr )->len = newlen;
+    }
+    else {
+        CONVERT_short_to_str( newlen, 0, ascii_tkn_hdr_lgth_lgth_l,
+                              (char*)&
+                              ( (tkn_hdr_ascii_def*)tkn_node->tkn->hdr )->len );
+    }
+}
+
+short tkn_area_get_len( tkn_area_def* area ) {
+    short len = 0;
+    if ( area == NULL || !area->hdr_present ) {
+        len = 0;
+    }
+    else
+        if ( area->format == binary_frmt_l ) {
+            len = ( (hdr_tkn_area_binary_def*)area->header )->len;
+        }
+        else {
+            len = (short)CONVERT_GetInt(
+                (char*)&( (hdr_tkn_area_ascii_def*)area->header )->len,
+                ascii_hdr_lgth_lgth_l );
+        }
+
+    return len;
+}
+
+short tkn_area_upd_len( tkn_area_def** area, short newlen ) {
+    tkn_area_def* tkn_area = *area;
+
+    if ( tkn_area == NULL || !tkn_area->hdr_present ) {
+        return tkn_not_exist_l;
+    }
+    else
+        if ( tkn_area->format == binary_frmt_l ) {
+            ( (hdr_tkn_area_binary_def*)tkn_area->header )->len = newlen;
+        }
+        else {
+            CONVERT_short_to_str( newlen, 0, ascii_hdr_lgth_lgth_l,
+                        (char*)&
+                        ( (hdr_tkn_area_ascii_def*)tkn_area->header )->len );
+        }
+
+    return tkn_compl_ok_l;
+}
+
+short tkn_area_upd_count( tkn_area_def** area, short newcount ) {
+    tkn_area_def* tkn_area = *area;
+
+    if ( tkn_area == NULL || !tkn_area->hdr_present ) {
+        return tkn_not_exist_l;
+    }
+    else
+        if ( tkn_area->format == binary_frmt_l ) {
+            ( (hdr_tkn_area_binary_def*)tkn_area->header )->count = newcount;
+        }
+        else {
+            CONVERT_short_to_str( newcount, 0, ascii_hdr_lgth_lgth_l,
+                        (char*)&
+                        ( (hdr_tkn_area_ascii_def*)tkn_area->header )->count );
+        }
+
+    return tkn_compl_ok_l;
+}
+
+short tkn_area_get_count( tkn_area_def* area ) {
+    short count = 0;
+    if ( area == NULL || !area->hdr_present ) {
+        count = 0;
+    }
+    else
+        if ( area->format == binary_frmt_l ) {
+            count = ( (hdr_tkn_area_binary_def*)area->header )->count;
+        }
+        else {
+            count = (short)CONVERT_GetInt(
+                (char*)&( (hdr_tkn_area_ascii_def*)area->header )->count,
+                ascii_hdr_cnt_lgth_l );
+        }
+
+    return count;
+}
+
+short tkn_node_del( tkn_node_def** head, const char* tkn_id ) {
+    tkn_node_def* temp = *head;
+    tkn_node_def* prev = *head;
+    short del_ofst = 0;
+    short del_len = 0;
+
+    while ( temp != NULL &&
+            ( memcmp( tkn_node_get_id( temp ), tkn_id, 2 ) != 0 ) ) {
+        prev = temp;
+        temp = temp->next;
+    }
+
+    if ( temp == NULL ) {
+        return tkn_not_exist_l;
+    }
+
+    prev->next = temp->next;
+    free( temp->tkn );
+    free( temp );
+    return tkn_compl_ok_l;
+}
+
+void* tkn_updt( tkn_area_def** area, const char* tkn_id, void* tkn_ptr,
+                short tkn_len, short* stat ) {
+    tkn_area_def* tkn_area = *area;
+    tkn_node_def* tkn_node = NULL;
+    short num_tkns = 0;
+    short tkn_ttl_len = 0;
+    short status = 0;
+    short cur_tkn_len = 0;
+    short check_len = 0;
+    short move_len = 0;
+    short shift_len = 0;
+    short tkn_ofst = 0;
+    short tkn_pos = 0;
+    short tkn_hdr_len = 0;
+    char* tkn_buf_ptr = (char*)tkn_ptr;
+    char* hdr_ptr_s = NULL;
+    char* tkn_hdr_ptr_s = NULL;
+
+    if ( tkn_len % 2 ) {
+        *stat = tkn_addr_oob_l;
+        return NULL;
+    }
+
+    if ( tkn_area->max_buf_len < tkn_area->buf_ofst ) {
+        *stat = tkn_addr_oob_l;
+        return NULL;
+    }
+
+    if ( tkn_area->max_buf_len == tkn_area->buf_ofst ||
+         ( tkn_area->max_buf_len > tkn_area->buf_ofst &&
+           tkn_area->userdata &&
+           tkn_area->core_len >= tkn_area->max_buf_len ) ) {
+        *stat = tkn_not_exist_l;
+        return NULL;
+    }
+
+    if ( !tkn_area->hdr_present ) {
+        *stat = tkn_not_exist_l;
+        return NULL;
+    }
+
+    hdr_ptr_s = (char*)tkn_area->header;
+    num_tkns = tkn_area_get_count( tkn_area );
+    tkn_ttl_len = tkn_area_get_len( tkn_area );
+    if ( tkn_area->format == binary_frmt_l ) {
+        tkn_hdr_len = binary_tkn_hdr_lgth_l;
+    }
+    else {
+        tkn_hdr_len = ascii_tkn_hdr_lgth_l;
+    }
+
+    tkn_node = tkn_node_get( tkn_area, tkn_id, stat, &tkn_pos, &tkn_ofst );
+    if ( *stat != tkn_compl_ok_l ) {
+        return NULL;
+    }
+    tkn_hdr_ptr_s = (char*)tkn_node->tkn->hdr;
+    cur_tkn_len = tkn_node_get_len( tkn_node, tkn_area->format );
+    check_len = tkn_area->core_len + tkn_ttl_len + ( tkn_len - cur_tkn_len );
+
+    if ( check_len > tkn_area->max_buf_len ) {
+        *stat = tkn_lmt_exceed_l;
+        return NULL;
+    }
+
+    if ( cur_tkn_len != tkn_len ) {
+        move_len = tkn_ttl_len - ( tkn_ofst + tkn_hdr_len + cur_tkn_len );
+        shift_len = tkn_len - cur_tkn_len;
+
+        memmove( &tkn_hdr_ptr_s[ tkn_hdr_len + tkn_len ],
+                 &tkn_hdr_ptr_s[ tkn_hdr_len + cur_tkn_len ], move_len );
+
+        if ( shift_len < 0 ) {
+            memset( &hdr_ptr_s[ tkn_ttl_len - shift_len ], ' ', shift_len );
+        }
+
+        tkn_node_upd_len( &tkn_node, tkn_len, tkn_area->format );
+
+        tkn_area_upd_len( area, tkn_ttl_len + shift_len );
+
+        tkn_area_list_reassing( &tkn_area->tkn_list, tkn_pos, hdr_ptr_s,
+                                tkn_ofst, tkn_area->format );
+    }
+
+    memcpy( &tkn_hdr_ptr_s[ tkn_hdr_len ], tkn_buf_ptr, tkn_len );
+
+    *stat = tkn_compl_ok_l;
+    return ( &tkn_hdr_ptr_s[ tkn_hdr_len ] );
+}
+
+short tkn_del( tkn_area_def** area, const char* tkn_id ) {
+    short frmt = 0;
+    short stat = 0;
+    short tkn_hdr_len = 0;
+    short tkn_len = 0;
+    short tkn_ttl_len = 0;
+    short num_tkns = 0;
+    short node_ofst = 0;
+    short node_pos = 0;
+    char* hdr_ptr_s = NULL;
+    char* tkn_hdr_ptr_s = NULL;
+    tkn_area_def* tkn_area = *area;
+    tkn_node_def* tkn_node = NULL;
+
+    num_tkns = tkn_area_get_count( tkn_area );
+    if ( num_tkns <= 1 ) {
+        return tkn_not_exist_l;
+    }
+
+    tkn_ttl_len = tkn_area_get_len( tkn_area );
+    frmt = tkn_area->format;
+
+    hdr_ptr_s = (char*)tkn_area->header;
+
+    tkn_node = tkn_node_get( tkn_area, tkn_id, &stat, &node_pos, &node_ofst );
+    if ( stat != tkn_compl_ok_l ) {
+        return stat;
+    }
+
+    tkn_len = tkn_node_get_len( tkn_node, frmt );
+
+    tkn_hdr_ptr_s = (char*)tkn_node->tkn->hdr;
+    if ( frmt == binary_frmt_l ) {
+        tkn_hdr_len = binary_tkn_hdr_lgth_l;
+    }
+    else {
+        tkn_hdr_len = ascii_tkn_hdr_lgth_l;
+    }
+
+    memcpy( tkn_hdr_ptr_s, &tkn_hdr_ptr_s[ tkn_hdr_len + tkn_len ],
+            tkn_ttl_len - ( node_ofst + tkn_hdr_len + tkn_len ) );
+
+    // actualizo el header del area
+    (void)tkn_area_upd_len( area, tkn_ttl_len - ( tkn_hdr_len + tkn_len ) );
+    (void)tkn_area_upd_count( area, num_tkns - 1 );
+
+    // blanqueo la 'basura' que me quedo al final
+    memset( &tkn_hdr_ptr_s[ tkn_ttl_len - ( tkn_hdr_len + tkn_len ) ], ' ',
+            tkn_hdr_len + tkn_len );
+
+    // elimino el nodo de la lista
+    (void)tkn_node_del_at_pos( &( *area )->tkn_list, node_pos );
+
+    // re-construyo la lista del tkn_area
+    (void)tkn_area_list_reassing( &( *area )->tkn_list, node_pos,
+                                  hdr_ptr_s, node_ofst, frmt );
+
+    return tkn_compl_ok_l;
+}
+
+void tkn_area_list_reassing( tkn_node_def** from, short node_from,
+                              void* hdr, short ofst, short frmt ) {
+    tkn_node_def* temp = *from;
+    tkn_node_def* prev = *from;
+    tkn_node_def* next = NULL;
+    short i = 0;
+    char* next_addr = NULL;
+    short t_h_len = 0;
+
+    if ( frmt == binary_frmt_l ) {
+        t_h_len = binary_tkn_hdr_lgth_l;
+    }
+    else {
+        t_h_len = ascii_tkn_hdr_lgth_l;
+    }
+
+    for ( i = 0; i < node_from; i++ ) {
+        temp = temp->next;
+    }
+
+    next_addr = (char*)&hdr[ ofst ];
+    while ( temp != NULL ) {
+        temp->tkn->hdr = next_addr;
+        temp->tkn->data = &next_addr[ t_h_len ];
+
+        next_addr = &next_addr[ t_h_len + tkn_node_get_len( temp, frmt ) ];
+        temp = temp->next;
+    }
+}
+
+void tkn_node_del_all( tkn_node_def** list ) {
+    tkn_node_def* current = *list;
+    tkn_node_def* next = NULL;
+
+    while ( current != NULL ) {
+        next = current->next;
+        free( current->tkn );
+        free( current );
+        current = next;
+    }
+    *list = NULL;
+}
+
+short tkn_node_del_at_pos( tkn_node_def** head, short pos ) {
+    short i = 0;
+    tkn_node_def* temp = NULL;
+    tkn_node_def* prev = NULL;
+    temp = *head;
+    prev = *head;
+    for ( i = 0; i <= pos; i++ ) {
+        if ( i == 0 && pos == 0 ) {
+            *head = ( *head )->next;
+            free( temp->tkn );
+            free( temp );
+            break;
+        }
+        else {
+            if ( i == pos && temp ) {
+                prev->next = temp->next;
+                free( temp->tkn );
+                free( temp );
+            }
+            else {
+                prev = temp;
+                // Position was greater than
+                // number of nodes in the list
+                if ( prev == NULL ) {
+                    return tkn_addr_oob_l;
+                }
+                temp = temp->next;
+            }
+        }
+    }
+
+    return tkn_compl_ok_l;
+}

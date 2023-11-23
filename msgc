@@ -1,0 +1,34 @@
+#include "msg.h"
+#include "convert.h"
+#include <tal.h>
+#include <string.h>
+
+short calc_int_intrn_msg_lgth( void* sim, tkn_area_def* area ) {
+    pstm_def* pstm = (pstm_def*)sim;
+    stm_def* stm = (stm_def*)sim;
+    short sim_lgth = 0;
+    short tkn_len = 0;
+    short* sim_ptr = (short*)sim;
+
+    if ( memcmp( pstm->prod_id, "02", 2 ) == 0 ) /* POS */
+    {
+        sim_lgth = pstm_tkn_ofst( pstm );
+        if ( pstm_userdata( pstm ) ) {
+            sim_lgth += ( 2 + sim_ptr[ sim_lgth ] );
+        }
+    }
+    else
+        if ( memcmp( stm->prod_id, "01", 2 ) == 0 ) {
+            sim_lgth = stm_def_Size;
+        }
+        else {
+            /* producto desconocido */
+            return -1;
+        }
+
+    if ( _arg_present( area ) ) {
+        tkn_len = tkn_area_get_len( area );
+    }
+
+    return ( sim_lgth + tkn_len );
+}

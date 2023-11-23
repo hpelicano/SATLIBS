@@ -1,0 +1,739 @@
+#include "flags.h"
+
+/* Track 2 defines */
+#define start_sent_d ';'
+#define end_sent_d   '?'
+
+#include <ctype.h>   /* isdigit() */
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>  /* memcpy(), strlen(), memset(), strchr() */
+#include <ctype.h>   /* toupper() tolower() */
+
+short CONVERT_str_to_short( const char* str, short begin, short len,
+                            short* dest ) {
+    char* buff;
+    short i;
+
+    if ( begin < 0 || len < 0 ) {
+        return false;
+    }
+    if ( len == 0 ) {
+        *dest = 0;
+        return true;
+    }
+    if ( len > 4 ) {
+        return false;
+    }
+    /* Un truquillo para los campos Y/N */
+    if ( len == 1 ) {
+        if ( str[ begin ] == 'y' || str[ begin ] == 'Y' ) {
+            *dest = true;
+            return true;
+        }
+        else if ( str[ begin ] == 'n' || str[ begin ] == 'N' ) {
+            *dest = false;
+            return true;
+        }
+    }
+    /* controlo que todo sea numerico */
+    for ( i = begin; i < len; i++ ) {
+        if ( ( str[ i ] > '9' || str[ i ] < '0' ) &&
+             str[ i ] != '+' && str[ i ] != '-' && str[ i ] != ' ' )
+            return false;
+    }
+    buff = (char*)calloc( ( len + 1 ), sizeof( char ) );
+    memcpy( buff, str + begin, len );
+    *dest = (short)atoi( buff );
+    free( buff );
+    return true;
+}
+
+short CONVERT_str_to_int( const char* str, short begin, short len,
+                          int* dest ) {
+    char* buff;
+    short i;
+
+    if ( begin < 0 || len < 0 ) {
+        return false;
+    }
+    if ( len == 0 ) {
+        *dest = 0;
+        return true;
+    }
+    if ( len > 9 ) {
+        return false;
+    }
+    /* Un truquillo para los campos Y/N */
+    if ( len == 1 ) {
+        if ( str[ begin ] == 'y' || str[ begin ] == 'Y' ) {
+            *dest = true;
+            return true;
+        }
+        else if ( str[ begin ] == 'n' || str[ begin ] == 'N' ) {
+            *dest = false;
+            return true;
+        }
+    }
+    /* controlo que todo sea numerico */
+    for ( i = begin; i < len; i++ ) {
+        if ( ( str[ i ] > '9' || str[ i ] < '0' ) &&
+             str[ i ] != '+' && str[ i ] != '-' && str[ i ] != ' ' )
+            return false;
+    }
+    buff = (char*)calloc( ( len + 1 ), sizeof( char ) );
+    memcpy( buff, str + begin, len );
+    *dest = atoi( buff );
+    free( buff );
+    return true;
+}
+
+short CONVERT_str_to_long( const char* str, short begin, short len,
+                           long* dest ) {
+    char* buff;
+    short i;
+
+    if ( begin < 0 || len < 0 ) {
+        return false;
+    }
+    if ( len == 0 ) {
+        *dest = 0;
+        return true;
+    }
+    if ( len > 9 ) {
+        return false;
+    }
+    /* Un truquillo para los campos Y/N */
+    if ( len == 1 ) {
+        if ( str[ begin ] == 'y' || str[ begin ] == 'Y' ) {
+            *dest = true;
+            return true;
+        }
+        else if ( str[ begin ] == 'n' || str[ begin ] == 'N' ) {
+            *dest = false;
+            return true;
+        }
+    }
+    /* controlo que todo sea numerico */
+    for ( i = begin; i < len; i++ ) {
+        if ( ( str[ i ] > '9' || str[ i ] < '0' ) &&
+             str[ i ] != '+' && str[ i ] != '-' && str[ i ] != ' ' )
+            return false;
+    }
+    buff = (char*)calloc( ( len + 1 ), sizeof( char ) );
+    memcpy( buff, str + begin, len );
+    *dest = atol( buff );
+    free( buff );
+    return true;
+}
+
+short CONVERT_str_to_llong( const char* str, short begin, short len,
+                            long long* dest ) {
+    long l1 = 0l, l2 = 0l;
+    short len1;
+    short real_len;
+
+    if ( begin < 0 || len < 0 ) {
+        return false;
+    }
+    if ( len == 0 ) {
+        *dest = 0;
+        return true;
+    }
+    if ( len > 18 ) {
+        return false;
+    }
+
+    real_len = len;
+    while ( ( real_len > 0 ) && ( str[ real_len - 1 ] < '0' ||
+                                  str[ real_len - 1 ] > '9' ) ) real_len--;
+    len1 = (short)( ( 9 > real_len ) ? real_len : 9 );
+
+    if ( !CONVERT_str_to_long( str, (short)( begin + ( real_len - len1 ) ),
+                               len1, &l1 ) )
+        return false;
+    if ( real_len != len1 ) {
+        if ( !CONVERT_str_to_long( str, begin, (short)( real_len - len1 ),
+                                   &l2 ) )
+            return false;
+        if ( l2 < 0 ) l2 *= -1;
+        *dest = l1 + ( l2 * 1000000000ll );
+        if ( str[ 0 ] == '-' ) { *dest *= -1; }
+    }
+    else {
+        *dest = l1;
+    }
+    return true;
+}
+
+short CONVERT_str_to_str( const char* str, short begin, short len,
+                          char* dest ) {
+    short i;
+
+    if ( begin < 0 || len < 1 ) {
+        return false;
+    }
+    /* controlo que todo sea numerico */
+    for ( i = begin; i < len; i++ ) {
+        if ( str[ i ] < ' ' ) return false;
+    }
+    memcpy( dest, str + begin, len );
+    dest[ len ] = '\0';
+    return true;
+}
+
+short CONVERT_short_to_str( short val, short begin, short len, char* dest ) {
+    int i = (int)len - 1;
+    int sign = val < 0L ? 1 : 0;
+
+    /* Realizo los chequeos iniciales */
+    if ( begin < 0 || len < 1 ) {
+        return false;
+    }
+
+    /* Voy convirtiendo digito a digito de atras para adelante */
+    do {
+        dest[ begin + i ] = (char)( abs( val % 10L ) ) + '0';
+        val = val / 10L;
+        i--;
+    } while ( val != 0L && i >= 0 );
+
+    if ( val != 0 ) {
+        return false;
+    }
+
+    /* Si es con signo y no hay lugar para agregarlo devuelvo false */
+    if ( sign && i <= 0 )
+        return false;
+
+    /* padeo con ceros hasta llegar al caracter de inicio si no tengo que poner
+     * el signo o uno antes si tengo que ponerlo.
+     */
+
+    while ( ( !sign && i >= 0 ) || ( sign && i >= 1 ) ) {
+        dest[ begin + i ] = '0';
+        i--;
+    }
+
+    if ( sign )
+        dest[ begin ] = '-';
+
+    return true;
+
+}
+
+short CONVERT_long_to_str( long val, short begin, short len, char* dest ) {
+
+    int i = (int)len - 1;
+    int sign = val < 0L ? 1 : 0;
+
+    /* Realizo los chequeos iniciales */
+    if ( begin < 0 || len < 1 ) {
+        return false;
+    }
+
+    /* Voy convirtiendo digito a digito de atras para adelante */
+    do {
+        dest[ begin + i ] = (char)( labs( val % 10L ) ) + '0';
+        val = val / 10L;
+        i--;
+    } while ( val != 0L && i >= 0 );
+
+    if ( val != 0 ) {
+        return false;
+    }
+
+    /* Si es con signo y no hay lugar para agregarlo devuelvo false */
+    if ( sign && i <= 0 )
+        return false;
+
+    /* padeo con ceros hasta llegar al caracter de inicio si no tengo que poner
+     * el signo o uno antes si tengo que ponerlo.
+     */
+
+    while ( ( !sign && i >= 0 ) || ( sign && i >= 1 ) ) {
+        dest[ begin + i ] = '0';
+        i--;
+    }
+    if ( sign )
+        dest[ begin ] = '-';
+
+    return true;
+
+}
+
+short CONVERT_llong_to_str( long long val, short begin, short len,
+                            char* dest ) {
+
+    int i = (int)len - 1;
+    int sign = val < 0L ? 1 : 0;
+
+    /* Realizo los chequeos iniciales */
+    if ( begin < 0 || len < 1 ) {
+        return false;
+    }
+
+    /* Voy convirtiendo digito a digito de atras para adelante */
+    do {
+        dest[ begin + i ] = (char)( llabs( val % 10L ) ) + '0';
+        val = val / 10L;
+        i--;
+    } while ( val != 0L && i >= 0 );
+
+    /* Controlo si quedaron digitos por convertir */
+    if ( val != 0 ) {
+        return false;
+    }
+
+    /* Si es con signo y no hay lugar para agregarlo devuelvo false */
+    if ( sign && i <= 0 )
+        return false;
+
+    /* padeo con ceros hasta llegar al caracter de inicio si no tengo que poner
+     * el signo o uno antes si tengo que ponerlo.
+     */
+
+    while ( ( !sign && i >= 0 ) || ( sign && i >= 1 ) ) {
+        dest[ begin + i ] = '0';
+        i--;
+    }
+    if ( sign )
+        dest[ begin ] = '-';
+
+    return true;
+
+}
+
+/* Saca los espacios del final */
+short CONVERT_str_rtrim( char* str ) {
+    int i;
+    short len = (short)strlen( str );
+
+    for ( i = len - 1; ( i >= 0 && ( str[ i ] == ' ' || str[ i ] == '\b' ) );
+          i-- ) {
+        str[ i ] = '\0';
+    }
+    return true;
+}
+
+/* Saca los espacios del principio */
+short CONVERT_str_ltrim( char* str ) {
+    short i;
+    short begin;
+    short end = (short)strlen( str );
+
+    /* Detecto el comienzo */
+    for ( begin = 0; ( begin < end && str[ begin ] == ' ' ); begin++ );
+    /* a ver si comienza con espacios */
+    if ( begin > 0 && begin < end ) {
+        begin--;
+        /* recorro desde el principio hasta el largo real de string recortado*/
+        for ( i = 0; i < ( end - begin ); i++ ) {
+            /* voy pegando en cada posicion los caracteres desde el comienzo
+               del string recortado */
+            str[ i ] = str[ i + begin ];
+        }
+        str[ i ] = '\0';
+    }
+    if ( begin == end ) {
+        str[ 0 ] = '\0';
+    }
+    return true;
+}
+
+short CONVERT_str_left( const char* str, short count, char* dest ) {
+
+    return false;
+}
+
+short CONVERT_str_rigth( const char* str, short count, char* dest ) {
+
+    return false;
+}
+
+short CONVERT_memprintf( void* ptr, short len, const char* fmt, ... ) {
+    char strtmp1[ 1024 ];
+    char strtmp2[ 1024 ];
+
+    va_list argptr;
+
+    /* le ponemos un limite al tama�o con el que voy a trabajar */
+    if ( len > 1024 ) {
+        return false;
+    }
+
+    /* le doy formato a la cadena segun lo pedido */
+    va_start( argptr, fmt );
+    vsprintf( strtmp1, fmt, argptr );
+    va_end( argptr );
+
+    /* la reformateo segun el tama�o que se va a ocupar
+       para que no me queden blancos basura o corte por la derecha */
+
+    sprintf( strtmp2, "%-*.*s", len, len, strtmp1 );
+    /* copio solo el tama�o pedido que es el objetivo de todo esto */
+    memcpy( ptr, strtmp2, len );
+    return true;
+}
+
+short CONVERT_is_zero( const char* data, short datalen ) {
+    while ( data && *data++ == '0' && datalen >= 0 ) {
+        datalen--;
+    }
+    return (short)( datalen > 0 ? false : true );
+}
+
+short CONVERT_is_blank( const char* data, short datalen ) {
+    while ( data && data[ datalen - 1 ] == ' ' && datalen > 0 ) datalen--;
+    return (short)( datalen > 0 ? false : true );
+}
+
+short CONVERT_t2( const char* in_t2, char* out_t2, short out_t2_len,
+                  short cortar ) {
+    const char* t2;
+    short i;
+
+    if ( !in_t2 || !out_t2 ) {
+        return false;
+    }
+    t2 = in_t2;
+    memset( out_t2, ' ', out_t2_len );
+    for ( i = 1; i < 40 && isdigit( t2[ i ] ) && i < out_t2_len; i++ ) {
+        out_t2[ i - 1 ] = t2[ i ];
+    }
+    /* Ya tengo el pan */
+    if ( cortar ) {
+        out_t2[ i - 1 ] = 0;
+        return true;
+    }
+    for ( i = i; i < 40 && t2[ i ] != end_sent_d && i < out_t2_len; i++ ) {
+        out_t2[ i - 1 ] = t2[ i ];
+    }
+    out_t2[ i - 1 ] = 0;
+    return true;
+}
+
+short CONVERT_bin_to_hex( unsigned char* src, short dest_len,
+                          unsigned char* dest ) {
+    char tmp_c;
+
+    if ( !src || !dest ) {
+        return false;
+    }
+
+    while ( dest_len > 0 ) {
+        tmp_c = (char)( *src >> 4 );
+        *dest++ = (unsigned char)( (tmp_c)+( ( ( tmp_c ) <= 9 ) ?
+                  '0' : (unsigned char)( 'A' - 0x0A ) ) );
+        tmp_c = (char)( *src & 0x0F );
+        *dest++ = (unsigned char)( (tmp_c)+( ( ( tmp_c ) <= 9 ) ?
+                  '0' : (unsigned char)( 'A' - 0x0A ) ) );
+
+        src++;
+        dest_len -= (short)2;
+    }
+    return true;
+}
+
+short CONVERT_hex_to_bin( unsigned char* src, short dest_len,
+                          unsigned char* dest ) {
+
+    if ( !src || !dest ) {
+        return false;
+    }
+
+    while ( --dest_len >= 0 ) {
+        dest[ dest_len ] = (char)( ( src[ ( dest_len * 2 ) + 1 ] >= '0' &&
+                                     src[ ( dest_len * 2 ) + 1 ] <= '9' ) ?
+                                   src[ ( dest_len * 2 ) + 1 ] - '0' :
+                                   src[ ( dest_len * 2 ) + 1 ] - 'A' + 0x0A );
+        dest[ dest_len ] += (char)( 0x10 * ( ( src[ dest_len * 2 ] >= '0' &&
+                                               src[ dest_len * 2 ] <= '9' ) ?
+                                         src[ dest_len * 2 ] - '0' :
+                                         src[ dest_len * 2 ] - 'A' + 0x0A ) );
+    }
+    return true;
+}
+
+short CONVERT_SP_To_Ceros( char* str, short len ) {
+    for ( ; len >= 0; --len ) {
+        if ( str[ len ] == ' ' ) {
+            str[ len ] = '0';
+        }
+    }
+    return true;
+}
+
+short CONVERT_ralign_len( char* str, short lgth ) {
+    int i;
+    int len = lgth;
+    short encontro_uno = false;
+
+    lgth--;
+    for ( i = len - 1; i >= 0; i-- ) {
+        if ( ( str[ i ] != ' ' ) || ( str[ i ] != '\0' ) || encontro_uno ) {
+            str[ lgth ] = str[ i ];
+            lgth--;
+            str[ i ] = ' ';
+            encontro_uno = true;
+        }
+    }
+    return true;
+}
+
+
+/*
+ *FUNCION    : DistintoDe()
+ *DESCRIPCION: Esta funci�n busca dentro de una cadena hasta que
+               encuentra un caracter determinado
+ *PARAMETROS : >> ptr: Puntero a la cadena a recorrer
+               >> cmp: Caracter a evaluar dentro de la cadena
+               >> lgth: Longitud a recorrer
+ *RETORNO    :  Puntero a la posici�n en donde difiere el caracter a evaluar
+ *              Devuelve Null si no encontr� un caracter distinto.
+ */
+char* CONVERT_DistintoDe( char* ptr, char cmp, short lgth ) {
+    short iIt;
+
+    for ( iIt = 0;iIt < lgth;iIt++ )
+        if ( ptr[ iIt ] != cmp )
+            return ( &ptr[ iIt ] );
+    return 0;
+}
+
+short CONVERT_IsDigit( const char* data, short len ) {
+    if ( len <= 0 ) return false;
+    for ( ;len;len-- ) {
+        if ( data[ len - 1 ] < '0' || data[ len - 1 ]>'9' )
+            return false;
+    }
+    return true;
+}
+
+short CONVERT_IsAlnum( const char* data, short len ) {
+    if ( len <= 0 ) return false;
+    for ( ;len;len-- ) {
+        if ( !isalnum( data[ len - 1 ] ) ) return false;
+    }
+    return true;
+}
+
+short CONVERT_IsExa( const char* data, short len ) {
+    if ( len <= 0 ) return false;
+    for ( ;len;len-- ) {
+        if ( ( data[ len - 1 ] < '0' || data[ len - 1 ] > '9' ) &&
+            ( data[ len - 1 ] < 'A' || data[ len - 1 ] > 'F' ) )
+            return false;
+    }
+    return true;
+}
+
+short CONVERT_IsAlpha( const char* data, short len ) {
+    if ( len <= 0 ) return false;
+    for ( ;len;len-- ) {
+        if ( !isalpha( data[ len - 1 ] ) )
+            return false;
+    }
+    return true;
+}
+
+short CONVERT_GetShort( const char* data, short len ) {
+    char tmp[ 5 ];
+
+    if ( len > 4 ) return 0;
+    memcpy( tmp, data, len );
+    tmp[ len ] = '\0';
+    return (short)atoi( tmp );
+}
+
+int CONVERT_GetInt( const char* data, short len ) {
+    char tmp[ 10 ];
+
+    if ( len > 9 ) return 0;
+    memcpy( tmp, data, len );
+    tmp[ len ] = '\0';
+    return atoi( tmp );
+}
+
+long CONVERT_GetLong( const char* data, short len ) {
+    char tmp[ 10 ];
+
+    if ( len > 9 ) return 0;
+    memcpy( tmp, data, len );
+    tmp[ len ] = '\0';
+    return atol( tmp );
+}
+
+long long CONVERT_GetLlong( const char* data, short len ) {
+    long long ll;
+    if ( CONVERT_str_to_llong( data, 0, len, &ll ) ) {
+        return ll;
+    }
+    else {
+        return 0L;
+    }
+}
+
+short CONVERT_Sustituir( char find, char replace, char* desde, short lgth ) {
+    short iIt;
+    for ( iIt = 0; iIt < lgth;iIt++ )
+        if ( desde[ iIt ] == find )
+            desde[ iIt ] = replace;
+
+    return true;
+}
+
+short CONVERT_Filename( char* oldfilename,
+                      char* filename,
+                      short maxlen ) {
+    short i, j, k;
+
+    k = 0;
+    for ( i = 0;i < maxlen;i = i + 8 ) {
+        for ( j = 0;oldfilename[ i + j ] != ' ' && j < 8;j++ ) {
+            filename[ k ] = oldfilename[ i + j ];
+            k++;
+        }
+        filename[ k ] = '.';
+        k++;
+    }
+    filename[ k - 1 ] = '\0';
+    return true;
+}
+
+/*****************************************************************\
+ *             :: - FORMAT_FormatearNumero - ::                   *
+ *                                                                *
+ * Esta rutina se encarga de formatear un n�mero para pegarlo en *
+ * un mensaje. Puede ser con o sin separador de miles. Con o sin  *
+ * decimales. El numero se coloca alineado a derecha.             *
+ *                                                                *
+ *     imp: Numero a formatear en ASCII.                          *
+ *     len: Tamanio del numero pasado en el campo imp.            *
+ *     dec: Cantidad de decimales que debe poseer el numero.      *
+ *   miles: Indica si debe poseer separador de miles.             *
+ *  cpyLen: Tamanio maximo de la cadena que debe copiarse. Se     *
+ *          completa con blancos a derecha.                       *
+ *    algn: Indica si el importe debe alinearse a der. o izq.     *
+ *     ptr: Puntero al msg en donde debe colocarse la cadena.     *
+\*****************************************************************/
+
+int CONVERT_FormatearNumero( const char* imp, short len, short dec,
+                             short miles, short cpyLen, short algn,
+                             const char* out ) {
+    char importe[ 20 ];
+    int aa, ii, oo, uu, pibote;
+
+    memset( &importe, ' ', sizeof( importe ) );
+
+    if ( dec > len ) dec = 0;
+    if ( len > sizeof( importe ) ) len = sizeof( importe );
+    if ( cpyLen > sizeof( importe ) ) cpyLen = sizeof( importe );
+
+    /*** Colocamos los decimales ***/
+    if ( dec > 0 ) {
+
+        memcpy( &importe[ sizeof( importe ) - dec ], &imp[ len - dec ], dec );
+        importe[ sizeof( importe ) - dec - 1 ] = ',';
+        oo = sizeof( importe ) - dec - 2;
+    }
+    else {
+        oo = sizeof( importe ) - 1;
+    }
+
+    aa = oo;
+
+    /*** Coloco la parte entera del numero ***/
+    uu = 0;
+
+    for ( ii = dec + 1; ii <= len; ii++ ) {
+        if ( uu == 3 && miles == TRUE ) {
+            uu = 0;
+            importe[ oo ] = '.';
+            oo = oo - 1;
+
+        }
+        importe[ oo ] = imp[ len - ii ];
+        oo = oo - 1;
+        uu = uu + 1;
+    }
+
+    /*** Saco los ceros a la izquierda ***/
+    if ( dec > 0 )
+        pibote = 3;
+    else
+        pibote = 2;
+
+    for ( ii = 0; ii <= sizeof( importe ) - dec - pibote; ii++ ) {
+        if ( importe[ ii ] != '0' && importe[ ii ] != ' ' &&
+                                   importe[ ii ] != '.' ) {
+            aa = ii;
+            ii = sizeof( importe );
+        }
+        else {
+            importe[ ii ] = ' ';
+        }
+    }
+
+    /*** Alineamos a izquierda si es necesario ***/
+    if ( algn == 1 ) {
+        uu = aa;
+
+        for ( ii = sizeof( importe ) - cpyLen; ii <= sizeof( importe ) - 1;
+              ii++ ) {
+            if ( uu < sizeof( importe ) )
+                importe[ ii ] = importe[ uu ];
+            else
+                importe[ ii ] = ' ';
+            uu = uu + 1;
+        }
+    }
+    memcpy( out, &importe[ sizeof( importe ) - cpyLen ], cpyLen );
+
+    return 0;
+
+}
+
+
+short CONVERT_str_to_upper( void* str, short begin, short len ) {
+    char* ch;
+    if ( str && begin >= 0 && len >= 0 ) {
+        for ( ch = (char*)(str)+begin; ch < ( (char*)(str)+begin + len );
+              ch++ ) {
+            *ch = (char)toupper( *ch );
+        }
+        return 1;
+    }
+    return 0;
+}
+
+short CONVERT_str_to_lower( void* str, short begin, short len ) {
+    char* ch;
+    if ( str && begin >= 0 && len >= 0 ) {
+        for ( ch = (char*)(str)+begin; ch < ( (char*)(str)+begin + len );
+              ch++ ) {
+            *ch = (char)toupper( *ch );
+        }
+        return 1;
+    }
+    return 0;
+}
+
+short CONVERT_buscar_posicion( char* ptr, char cmp, short lgth ) {
+    short iIt;
+
+    for ( iIt = 0;iIt < lgth;iIt++ )
+        if ( ptr[ iIt ] == cmp )
+            return ( iIt );
+    return 0;
+}
+
+void CONVERT_alinear_derecha( char* szEntrada, char* szSalida, char chComp,
+                              short shPos, short shLong ) {
+    memset( szSalida, chComp, shLong - shPos );
+    memcpy( &szSalida[ shLong - shPos ], szEntrada, shPos );
+    return;
+}
+
+/* CONVERTC FIN */

@@ -1,0 +1,39 @@
+/* WFLAGSH INICIO */
+
+#ifndef _WFLAGS_H_
+#define _WFLAGS_H_
+
+/* defines */
+#define _OFFSET( st, m ) ((short)( (char *)&((st *)(0))->m - (char *)0 ))
+#define _OCCURS( array ) ((short)( sizeof( array ) / sizeof( array[0] ) ))
+
+/* valores de verdad */
+#ifndef TRUE
+#define TRUE (1==1)
+#endif
+#ifndef FALSE
+#define FALSE (1==0)
+#endif
+#ifndef true
+#define true 1
+#endif
+#ifndef false
+#define false 0
+#endif
+/* flags para estados */
+#ifndef flag_on
+#define flag_on 1
+#endif /* on */
+#ifndef flag_off
+#define flag_off 0
+#endif /* off */
+#ifndef flag_up
+#define flag_up 1
+#endif /* up */
+#ifndef flag_down
+#define flag_down 0
+#endif /* down */
+
+#endif /* _WFLAGS_H_ */
+
+/* WFLAGSH FIN */

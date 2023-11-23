@@ -1,0 +1,75 @@
+/* LCONFH INICIO */
+
+#ifndef _LCONF_H_
+#define _LCONF_H_
+
+#include <stdio.h>
+
+#include <xndc>
+
+#define MAX_ASSIGNS             10
+#define MAX_PARAMS              11
+
+
+/* Estructuras para requerir datos de LCONF */
+typedef struct _LCONF_ASSIGN {
+    char* assign;
+    char file_name[ FILENAME_MAX + 1 ];
+    char* file_name_default;
+    char tplt_name[ FILENAME_MAX + 1 ];
+    char* tplt_name_default;
+} LCONF_ASSIGN;
+
+typedef struct _LCONF_PARAM {
+    char* param;
+    char param_txt[ STARTUP_PARAM_SIZE_L + 1 ];
+    char* param_txt_default;
+} LCONF_PARAM;
+
+struct var_p {
+    char txt[ STARTUP_PARAM_SIZE_L + 1 ];
+};
+
+typedef struct _LCONF_AV {
+    struct {
+        short count;
+        char  param_txt[ STARTUP_PARAM_SIZE_L + 1 ];
+        struct var_p* param_count;
+    } param[ MAX_PARAMS ];
+} LCONF_AV;
+
+
+/* assigns y params son arrays de las estructuras declaradas arriba con un
+   elemento mas con el parametro assign o param en NULL segun corresponda */
+short LCONF_GetAssigns( const char* sys_name,
+                                const char* lconf_filename,
+                                LCONF_ASSIGN* assigns );
+short LCONF_GetParams( const char* sys_name,
+                                const char* lconf_filename,
+                                LCONF_PARAM* params );
+
+const char* LCONF_Param( const char* key, LCONF_PARAM* params );
+const char* LCONF_Assign_Filename( const char* key, LCONF_ASSIGN* assigns );
+const char* LCONF_Assign_Template( const char* key, LCONF_ASSIGN* assigns );
+
+short LCONF_Check( LCONF_ASSIGN* assigns, LCONF_PARAM* params );
+const char* LCONF_Error( void );
+
+short LCONF_AddAssign( const char* sys_name,
+                        const char* lconf_filename,
+                        const char* assign,
+                        const char* file_name_default,
+                        const char* tplt_name_default,
+                        LCONF_ASSIGN* assigns );
+short LCONF_AddParam( const char* sys_name,
+                        const char* lconf_filename,
+                        const char* param,
+                        const char* param_txt_default,
+                        LCONF_PARAM* params );
+
+short LCONF_GetParams_Av( const char* sys_name,
+                                 const char* lconf_filename,
+                                 LCONF_AV* lconf );
+
+#endif /* _LCONF_H_ */
+/* LCONFH FIN */

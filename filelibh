@@ -1,0 +1,168 @@
+
+/* FILELIBH INICIO */
+
+#ifndef _FILELIB_H_
+#define _FILELIB_H_
+
+/* constantes para Open access */
+#define ACC_RW        0
+#define ACC_READ      1
+#define ACC_WRITE     2
+/* constantes para Open access */
+#define MODE_SHARED   0
+#define MODE_EXCL     1
+#define MODE_PROTE    3
+/* constantes para KFILE_SetKey  spec */
+#define SPEC_PK       0
+/* constantes para KFILE_SetKey  mode */
+#define MODE_APROX    0
+#define MODE_GENERIC  1
+#define MODE_EXACT    2
+
+#define FILE_WITH_ERROR           -2
+#define FILE_DOES_NOT_EXISTS      -1
+#define FILE_IS_CLOSE              0
+#define FILE_IS_OPEN               1
+
+/* Mantiene informacion de un archivo */
+typedef struct _FileInfo {
+    /* Device Type */
+    short DevType;
+    /* Device Sub Type */
+    short DevSubType;
+    /*
+      * Object Type
+      *    0 Unstructured or Enscribe file
+      *    2 SQL table
+      *    4 SQL index
+      *    5 SQL protection view
+      *    7 SQL shorthand view
+      */
+    short ObjectType;
+    /*
+      * File Type
+      *    0 unstructured
+      *    1 relative
+      *    2 entry-sequenced
+      *    3 key-sequenced
+    */
+    short FileType;
+    /* Application defined file code   */
+    short FileCode;
+    /* Record length */
+    short RecLength;
+    /* Block length */
+    short BlockLength;
+    /* key-sequenced disk file: offset in bytes of the primary key */
+    short KeyOffset;
+    /* key-sequenced disk file: primary key length */
+    short KeyLength;
+    /* Total alternate key count */
+    short AltTotalKey;
+    /* Total alternate key length */
+    short AltTotalKeyLen;
+    /* Record count on file, as calculated by FILELIB_Get_Record_Count*/
+    long  RecordCnt;
+    /* Used file size in bytes */
+    long UsedFileSize;
+    /* Aggregate EOF of file */
+    long AggrEOF;
+    /* Maximun file size */
+    long MaxFileSize;
+}FileInfo;
+
+
+/*
+   Estructura de datos creada para su utilizacion con la funcion
+   "get_file_structure_info(...)".
+   Contiene la informacion necesaria para conocer la estructura de un archivo.
+*/
+typedef struct _File_StructInfo {
+    short fileType;             /* File type */
+    short fileCode;             /* File code */
+    short recordLength;         /* Logical record length */
+    short blockLength;          /* Block length */
+    short keyOffset;            /* Key offset, para archivos key-sequence */
+    short keyLength;            /* Key length, para archivos key-sequence */
+    short primaryExtentSize;    /* Primary extents size */
+    short secondaryExtentSize;  /* Secondary extents size */
+    short maxExtents;           /* Maximun extents */
+}File_StructInfo;
+
+
+/* Obtiene informacion de un archivo */
+short FILELIB_Info( const char* file_name, FileInfo* fi );
+/* Devuelve la cantidad de registros de un archivo */
+short FILELIB_Get_Record_Count( short fn, const void* key,
+                              short keylen, FileInfo* fi );
+/* Crea un archivo en base a un template */
+short FILELIB_Create_Like( const char* file_name, const char* tplt_name );
+/* Crea un archivo Entry Sequence */
+short FILELIB_Create_EntrySeq( const char* file_name, /* Nombre del archivo */
+                              const short file_code,  /* File code */
+                              const short record_len, /* Longitud del reg */
+                              const short block_len,  /* Block length */
+                              const short p_ext,      /* Primary ext size */
+                              const short s_ext,      /* Secondary ext size */
+                              const short m_ext,      /* Max extents */
+                              const short w_through ); /* Write through */
+/* Crea un archivo Key Sequence */
+short FILELIB_Create_KeySeq( const char* file_name,
+                            const short file_code,
+                            const short record_len,
+                            const short block_len,
+                            const short p_ext,
+                            const short s_ext,
+                            const short m_ext,
+                            const short w_through,
+                            const short k_offset,
+                            const short k_len );
+/* Abre un archivo y devuelve su fn */
+short FILELIB_Open( const char* filename, short access, short exclusion,
+                    short* error );
+/* Abre un archivo con Sequencial Block Buffer y devuelve su fn  */
+short FILELIB_OpenSBB( const char* filename, short access, short exclusion,
+                       short sbbLen, short* error );
+/* Cierra el archivo referenciado por el fn */
+short FILELIB_Close( short fn );
+/* Posiciona el archivo abierto en un registro por clave */
+short FILELIB_SetKey( short fn, const void* key, short keylen,
+                      const char* spec, short mode );
+/* Posiciona el archivo abierto en un registro por posicion*/
+short FILELIB_SetPos( short fn, double pos );
+/* Devuelve la cantidad leida */
+short FILELIB_Read( short fn, void* buffer, short bufferlen );
+short FILELIB_ReadUpdate( short fn, void* buffer, short bufferlen );
+/* Lee y deja locked un registro. Devuelve la cantidad leida  */
+short FILELIB_ReadUpdateLock( short fn, void* buffer, short bufferlen );
+/* Lee y deja locked un registro. Devuelve la cantidad leida  */
+short FILELIB_ReadLock( short fn, void* buffer, short bufferlen );
+/* Escribe un nuevo registro, Devuelve la cantidad escrita */
+short FILELIB_Write( short fn, const void* buffer, short bufferlen );
+short FILELIB_WriteUpdateUnlock( short fn, void* buffer, short bufferlen );
+/* Escribe un registro existente, Devuelve la cantidad escrita */
+short FILELIB_Update( short fn, const void* buffer, short bufferlen );
+/* Escribe un registro existente y locked, Devuelve la cantidad escrita */
+short FILELIB_Last_Error( short fn );
+/* Obtiene la posicion actual de un archivo usando la vieja SAVEPOSITION  */
+short FILELIB_SavePosition_Old( short fn, short* save_buf );
+/* Setea la posicion actual de un archivo usando la vieja REPOSITION  */
+short FILELIB_RestorePosition_Old( short fn, short* save_buf );
+/* Obtiene la posicion actual de un archivo usando la FILE_SAVEPOSITION_ */
+short FILELIB_SavePosition( short fn, short* save_buf, short save_max,
+                            short* save_size );
+/* Setea la posicion actual de un archivo usando la FILE_RESTOREPOSITION_ */
+short FILELIB_RestorePosition( short fn, short* save_buf, short save_size );
+
+short FILELIB_GetOpenStatus( const char* file_name );
+short FILELIB_Purge( const char* fname );
+short FILELIB_Rename( short fn, const char* new_name );
+
+/* Obtener la informacion de la estructura de un archivo en base a su path.  */
+short FILELIB_GetFileStructureInfo_KeySeq( const char* file_name,
+                                           File_StructInfo* file_struct );
+short FILELIB_GetFileStructureInfo_EntrySeq( const char* file_name,
+                                             File_StructInfo* file_struct );
+
+#endif /* _FILELIB_H_ */
+/* FILELIBH FIN */

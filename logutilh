@@ -1,0 +1,34 @@
+
+#ifndef _LOGUTIL_H_
+#define _LOGUTIL_H_
+/* Niveles */
+#define LLDEBUG   100
+#define LLINFO    50
+#define LLWARNING 10
+#define LLERROR   5
+#define LLPANIC   1
+#define LLNONE    0
+
+
+#define MSG_FREE_FORM          100
+#define ATALLA_ERROR           101
+#define SIMCOM_EMPTY           102
+#define LCONF_ERROR            103
+#define APPL_ERROR             104
+#define INIT_OK                105
+
+#define false 0
+#define true 1
+
+short LOGUTIL_Iniciar( const char* pri_collector_name,
+                       const char* sys_name,
+                       const char* group,
+                       const char* type,
+                       const char* alt_collector_name );
+
+short LOGUTIL_Attach( void );
+short LOGUTIL_Cerrar( void );
+short LOGUTIL_Set_Loglevel( short level );
+short LOGUTIL_Log( short level, short code, const char* fmt, ... );
+
+#endif

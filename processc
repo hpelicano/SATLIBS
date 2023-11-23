@@ -1,0 +1,550 @@
+/************************************************************************
+    PROCESS -
+    Funciones para la implementacion de comunicacion con el nucleo
+    a traves de XPNET.
+    Implementa la capa mas baja e incluye la decodificacion de header
+    del nucleo.
+**************************************************************************/
+
+#include "process.h"
+#include "flags.h"
+
+/*#include <tdmstd.h>*/    /*Que es esto?*/
+
+#define EXTERN
+
+#define extptr /* definir antes de incluir xncext*/
+#include <xncext>
+
+#include <cextdecs>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+
+/* ****************************************************************************
+#FUNCION: PROCESS_Iniciar
+#DESCRIPCION:
+#PARAMETRO: opt - Opciones de inicializacion \
+            NET_OPT_NOWAITRCV_D|NET_OPT_WANTSYSMSG_D|NET_OPT_WANTLOGICERR_D
+#PARAMETRO: dept - default 1
+#RETURN: NET_OK_D = Ok, NET_MISSING_PARAM_D,NET_STATUS_DETAIL_D
+**************************************************************************** */
+short PROCESS_Iniciar( short opt, short depth, char* sys_name,
+                      char* lconf_name, char* collector_name ) {
+    short rc;
+    short len;
+    short i;
+
+    memset( &NetStatus, 0X00, sizeof( NetStatus ) );
+    memset( sNetSysName, 0x00, sizeof( sNetSysName ) );
+
+    gBuffer = (char*)calloc( sizeof( char ), MESSAGE_BUFFER_LEN );
+
+    rc = netlib_init( (char*)&NetStatus,
+                    (char*)&g_stCtrlBlock,
+                    gBuffer,
+                    MHDR_STARTUP_SIZE_L,
+                    NETLIB_VER_DDL_CURRENT_L,
+                    MESSAGE_BUFFER_LEN,
+                    MESSAGE_BUFFER_LEN,
+                    opt,
+                    depth );
+
+    if ( rc == NETLIB_OK_L ) {
+        /* Tomo la info que puedo del mensaje de startup */
+        MHDR_GET_STARTUP_MY_SYMNAME( gBuffer, sys_name );
+        sys_name[ 17 ] = 0x00;
+        memcpy( sNetSysName, sys_name, 17 );
+
+        lconf_get_name( gBuffer, lconf_name, &len );
+        lconf_name[ len ] = 0x00;
+
+        len = 0;
+        OLDFILENAME_TO_FILENAME_( (short*)&gBuffer[ 170 ],
+                                collector_name,
+                                256,
+                                &len );
+        collector_name[ len ] = 0x00;
+
+        /* limpio los espacios */
+        for ( i = 0; i < sizeof( collector_name ); i++ ) {
+            if ( collector_name[ i ] == ' ' ) {
+                collector_name[ i ] = 0x00;
+            }
+        }
+        rcv_type = NOT_NETLIB_RCV_READ_POSTED_L;
+    }
+    return rc;
+}
+
+
+/* ****************************************************************************
+#FUNCION: PROCESS_Cerrar
+#DESCRIPCION:
+**************************************************************************** */
+short PROCESS_Cerrar( void ) {
+    return netlib_stop( (char*)&NetStatus, (char*)&g_stCtrlBlock );
+}
+
+
+/* ****************************************************************************
+#FUNCION: PROCESS_EsperarMensaje
+#DESCRIPCION: Espera la llegada de un mensaje o que pase el time-out
+#PARAMETRO: to - time-out en segundos
+#PARAMETRO:
+#RETURN:  RCV_TIMED_OUT_L
+#RETURN:  NETLIB_NET_DATAMSG_L
+#RETURN:  NETLIB_NET_SYSMSG_L
+#RETURN:  NETLIB_NET_STOPMSG_L
+#RETURN:  NETLIB_NONNET_DATAMSG_L
+#RETURN:  NETLIB_NONNET_SYSMSG_L
+**************************************************************************** */
+short PROCESS_EsperarMensaje( char* msg, short to ) {
+    short rc;
+    short fnum;
+    short to_read;
+    short error_detail;
+    short tipo_mensaje;
+    short sender_procid[ 4 ];
+    short sender_fnum;
+    short msg_tag;
+    short reply_cnt;
+    short io_type;
+    char* pbuffer;
+    long tag;
+    char buffer[ MESSAGE_BUFFER_LEN ];
+
+    memset( buffer, 0X00, MESSAGE_BUFFER_LEN );
+    if ( rcv_type != NETLIB_RCV_READ_POSTED_L ) {
+        /* Use the netlib API routine to post read  */
+        /* We're doing nowaited I/O.                */
+        rc = netlib_read_rcv( (char*)&NetStatus,
+                            (char*)&g_stCtrlBlock,
+                            buffer,
+                            &rcv_type );
+
+        if ( rc != NETLIB_OK_L ) {
+            /* call failed or an unexpected rcv_type was */
+            /* returned during no-waited event.          */
+            return -1;
+        }
+
+    }
+    /* (void) AWAITIOX to complete (get the next message from */
+    /* the network, non-network source or file-completion.    */
+    /* We will wait for .10 seconds.  if timeout occurs then  */
+    /* a new read will get posted and we will continue.  This */
+    /* done so we can debug during main loop.                 */
+
+    fnum = -1;
+    tag = -1;
+    error_detail = 0;
+
+    if ( AWAITIOX( &fnum, (long*)&pbuffer, (unsigned short*)&to_read, &tag,
+                   ( ( to >= 0 ) ? to * 100 : -1 ) ) ) {
+        (void)FILE_GETINFO_( fnum, &error_detail );
+        if ( error_detail == 40 /*FE timedout */ ) {
+            rcv_type = RCV_TIMED_OUT_L;
+        }
+        else {
+            if ( error_detail != 6 /*FE sysmsg rcvd*/ ) {
+                return -1;
+            }
+        }
+    }
+
+    if ( rcv_type == RCV_TIMED_OUT_L ) {
+        /* Read is still posted but hasn't completed due to   */
+        /* timeout on $receive.                               */
+        tipo_mensaje = RCV_TIMED_OUT_L;
+        rcv_type = NETLIB_RCV_READ_POSTED_L;
+    }
+    else {
+        if ( fnum == 0 ) {
+            /* This is a new message fresh off $receive       */
+            /* Use the netlib API to get msg completion       */
+            rc = netlib_read_rcv_complete( (char*)&NetStatus,
+                                            (char*)&g_stCtrlBlock,
+                                            pbuffer,
+                                            to_read,
+                                            &rcv_type,
+                                            sender_procid,
+                                            &msg_tag,
+                                            ,
+                                            &sender_fnum,
+                                            &reply_cnt,
+                                            &io_type );
+            if ( rc != NETLIB_OK_L ) {
+                /* (void) to read completion failed.          */
+                return -1;
+            }
+            else {
+                tipo_mensaje = rcv_type;
+                memcpy( msg, pbuffer, to_read );
+            }
+        }
+        else {
+            /* This must be due to a file completion from a   */
+            /* previously posted I/O by this process.         */
+            tipo_mensaje = RCV_TIMED_OUT_L;
+        }
+
+        rcv_type = NOT_NETLIB_RCV_READ_POSTED_L;
+
+    }
+
+    return tipo_mensaje;
+}
+
+
+/* ****************************************************************************
+#FUNCION: PROCESS_EsperarMensajeOCompletion
+#DESCRIPCION: Extiende la funcionalidad de BCOMM_EsperarMensaje agregando info
+              relativa al completion en caso de tratarse de uno
+              Duplico mucho codigo, pero dejo la funcion BCOMM_EsperarMensaje
+              INTACTA para reducir riesgos con otros procesos que la usen
+              y para evitar los tests de regresion sobre esos procesos
+#PARAMETRO: to - time-out en segundos (timeout del AWAITIOX,
+            es distinto al del SERVERCLASS_SEND)
+#PARAMETRO: fn - out - devuelve el file number sobre el cual se recibio
+            el completion (-1 si no se trata de un completion)
+#PARAMETRO: tag - out - devuleve el tag que se le paso originalmente a la
+            operacion nowaited sobre el archivo fn (-1 si no se trata de un
+            completion)
+#RETURN:  RCV_TIMED_OUT_L
+#RETURN:  NETLIB_NET_DATAMSG_L
+#RETURN:  NETLIB_NET_SYSMSG_L
+#RETURN:  NETLIB_NET_STOPMSG_L
+#RETURN:  NETLIB_NONNET_DATAMSG_L
+#RETURN:  NETLIB_NONNET_SYSMSG_L
+#RETURN:  RCV_COMPLETION_L
+#RETURN:  RCV_COMPLETION_TIMEOUT_L
+**************************************************************************** */
+short PROCESS_EsperarMensajeOCompletion( char* msg, short to, short* fn,
+                                         long* tag,
+                                         short* filesystem_error,
+                                         short* pathsend_error ) {
+    short rc;
+    short to_read;
+    short tipo_mensaje;
+    short sender_fnum;
+    short msg_tag;
+    short reply_cnt;
+    short io_type;
+    short sender_procid[ 4 ];
+    char* pbuffer;
+    char buffer[ MESSAGE_BUFFER_LEN ];
+
+    memset( buffer, 0x00, MESSAGE_BUFFER_LEN );
+
+    if ( rcv_type != NETLIB_RCV_READ_POSTED_L ) {
+        /* Use the netlib API routine to post read            */
+        /* We're doing nowaited I/O.                          */
+        rc = netlib_read_rcv( (char*)&NetStatus,
+                            (char*)&g_stCtrlBlock,
+                            buffer,
+                            &rcv_type );
+        if ( rc != NETLIB_OK_L ) {
+            /* call failed or an unexpected rcv_type was      */
+            /* returned during no-waited event.               */
+            return -1;
+        }
+    }
+
+    /* (void) AWAITIOX to complete (get the next message from */
+    /* the network, non-network source or file-completion.    */
+    /* We will wait for .10 seconds.  if timeout occurs then  */
+    /* a new read will get posted and we will continue.  This */
+    /* done so we can debug during main loop.                 */
+
+    *fn = -1;
+    *tag = -1;
+    *filesystem_error = 0;
+    *pathsend_error = 0;
+
+    if ( AWAITIOX( fn, (long*)&pbuffer, (unsigned short*)&to_read, tag,
+                   ( ( to >= 0 ) ? to * 100 : -1 ) ) ) {
+        FILE_GETINFO_( *fn, filesystem_error );
+
+        if ( *filesystem_error == 40 )    /* FE timedout */
+        {
+            rcv_type = RCV_TIMED_OUT_L;
+        }
+        else if ( *filesystem_error == 233 )   /* SERVERCLASS_SEND_ error */
+        {
+            SERVERCLASS_SEND_INFO_( pathsend_error, filesystem_error );
+
+            if ( *pathsend_error == 918 )      /* FeScSendOperationAborted */
+            {
+                rcv_type = RCV_COMPLETION_TIMEOUT_L;
+            }
+            else {
+                rcv_type = RCV_COMPLETION_ERROR_L;
+            }
+        }
+        else {
+            if ( *filesystem_error != 6 /*FE sysmsg rcvd*/ ) {
+                return -1;
+            }
+        }
+    }
+
+    if ( rcv_type == RCV_TIMED_OUT_L ) {
+        /* Read is still posted but hasn't completed due to   */
+        /* timeout on $receive.                               */
+        tipo_mensaje = RCV_TIMED_OUT_L;
+        rcv_type = NETLIB_RCV_READ_POSTED_L;
+    }
+    else if ( rcv_type == RCV_COMPLETION_TIMEOUT_L ||
+            rcv_type == RCV_COMPLETION_ERROR_L ) {
+        /* Read is still posted but hasn't completed due to   */
+        /* timeout on SERVERCLASS_SEND_                       */
+        tipo_mensaje = rcv_type;
+        rcv_type = NETLIB_RCV_READ_POSTED_L;
+    }
+    else {
+        if ( *fn == 0 ) {
+            /* This is a new message fresh off $receive       */
+            /* Use the netlib API to get msg completion       */
+            rc = netlib_read_rcv_complete( (char*)&NetStatus,
+                                            (char*)&g_stCtrlBlock,
+                                            pbuffer,
+                                            to_read,
+                                            &rcv_type,
+                                            sender_procid,
+                                            &msg_tag,
+                                            ,
+                                            &sender_fnum,
+                                            &reply_cnt,
+                                            &io_type );
+            if ( rc != NETLIB_OK_L ) {
+                /* (void) to read completion failed.          */
+                return -1;
+            }
+            else {
+                tipo_mensaje = rcv_type;
+                memcpy( msg, pbuffer, to_read );
+            }
+
+            rcv_type = NOT_NETLIB_RCV_READ_POSTED_L;
+
+        }
+        else {
+            /*** COMPLETION ***/
+            /* This must be due to a completion from a        */
+            /* previously posted I/O by this process.         */
+            tipo_mensaje = RCV_COMPLETION_L;
+            rcv_type = NETLIB_RCV_READ_POSTED_L;
+            /* fn y tag quedan con los valores devueltos por AWAITIOX */
+            /* no copio pbuffer a msg porque pbuffer ya es un puntero al
+               buffer utilizado en el inicio de la operacion nowait y ahora
+               contiene la respuesta */
+        }
+    }
+
+    return tipo_mensaje;
+}
+
+
+/******************************************************************************
+    Envia el mensaje que este en MSG->out.msg al destino
+    Devuelve en Error, el codigo de error que develve NETLIB_SEND
+******************************************************************************/
+short PROCESS_EnviarMsj( const char* destino, const char* msg, short msg_len,
+                         short send_type, short ack, long trace, int* Error ) {
+    char dest_name[ 17 ];
+    char udata[ 2 ];
+    char buffer[ 4096 ];
+    int e_netlib_send = 0;
+
+    memset( Error, 0x00, sizeof( int ) * 5 );
+    memset( dest_name, 0x00, sizeof( dest_name ) );
+    memset( udata, 0x00, sizeof( udata ) );
+    memset( buffer, 0x00, sizeof( buffer ) );
+
+    sprintf( dest_name, "%-16.16s", destino );
+
+    MHDR_INITIALIZE( buffer,
+                    sNetSysName,
+                    dest_name );
+
+    MHDR_SET_SRC_TYPE( buffer, MHDR_SYM_TYPE_PROCESS_L );
+
+    MHDR_SET_NOM_RETURN( buffer, 1 /*on*/ );
+
+    MHDR_SET_MSG_PRIORITY( buffer, 255 );
+
+    if ( ack ) {
+        MHDR_SET_LOGICAL_ACK( buffer, 1 );
+
+        /* le paso el trace en dos pedacitos para que entre
+         y me quedan dos short libres para usar si necesito */
+        MHDR_SET_MSG_PROCESS_WORDS( buffer,
+                                    (short)( trace / 1000 ),
+                                    (short)( trace % 1000 ),
+                                    0,
+                                    0 );
+    }
+
+    MHDR_SET_MSG_TEXT( buffer,
+                        (char*)msg,
+                        msg_len,
+                        udata,
+                        -1 /*no udata*/ );
+
+    if ( ( e_netlib_send = netlib_send( (char*)&NetStatus,
+                                        (char*)&g_stCtrlBlock,
+                                        buffer,
+                                        send_type ) ) != NETLIB_OK_L ) {
+        if ( e_netlib_send == NETLIB_SEE_STATUS_DETAIL_L ) {
+            Error[ 0 ] = NetStatus.code1;
+            Error[ 1 ] = NetStatus.code2;
+            Error[ 2 ] = NetStatus.code3;
+            Error[ 3 ] = NetStatus.code4;
+            Error[ 4 ] = NetStatus.error_source;
+        }
+
+        if ( NetStatus.code1 == 5 ) {
+            /* si hubo un error al enviar el mensaje como respuesta intento
+               escribir directamente */
+            if ( ( e_netlib_send = netlib_send( (char*)&NetStatus,
+                                                (char*)&g_stCtrlBlock,
+                                                buffer,
+                                                NETLIB_WRITE_L ) )
+                                                != NETLIB_OK_L ) {
+                if ( e_netlib_send == NETLIB_SEE_STATUS_DETAIL_L ) {
+                    Error[ 0 ] = NetStatus.code1;
+                    Error[ 1 ] = NetStatus.code2;
+                    Error[ 2 ] = NetStatus.code3;
+                    Error[ 3 ] = NetStatus.code4;
+                    Error[ 4 ] = NetStatus.error_source;
+                }
+
+                return false;
+            }
+        }
+        else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+short PROCESS_EnviarMensaje( const char* destino, const char* msg,
+                             short msg_len,
+                             short send_type, short ack, long trace ) {
+    char dest_name[ 17 ];
+    char udata[ 2 ];
+    char buffer[ 4096 ];
+
+    memset( dest_name, 0x00, sizeof( dest_name ) );
+    memset( udata, 0x00, sizeof( udata ) );
+    memset( buffer, 0x00, sizeof( buffer ) );
+
+    sprintf( dest_name, "%-16.16s", destino );
+
+    MHDR_INITIALIZE( buffer,
+                    sNetSysName,
+                    dest_name );
+
+    MHDR_SET_SRC_TYPE( buffer, MHDR_SYM_TYPE_PROCESS_L );
+
+    MHDR_SET_NOM_RETURN( buffer, 1 /*on*/ );
+
+    MHDR_SET_MSG_PRIORITY( buffer, 255 );
+
+    if ( ack ) {
+        MHDR_SET_LOGICAL_ACK( buffer, 1 );
+        /* le paso el trace en dos pedacitos para que entre
+         y me quedan dos short libres para usar si necesito */
+        MHDR_SET_MSG_PROCESS_WORDS( buffer,
+                                    (short)( trace / 1000 ),
+                                    (short)( trace % 1000 ),
+                                    0,
+                                    0 );
+    }
+
+    MHDR_SET_MSG_TEXT( buffer,
+                       (char*)msg,
+                        msg_len,
+                        udata,
+                        -1 /*no udata*/ );
+
+    if ( netlib_send( (char*)&NetStatus,
+                      (char*)&g_stCtrlBlock,
+                      buffer,
+                      NETLIB_RCV_REPLY_L ) != NETLIB_OK_L ) {
+        if ( NetStatus.code1 == 5 ) {
+            /* si hubo un error al enviar el mensaje como respuesta intento
+            escribir directamente */
+            if ( netlib_send( (char*)&NetStatus,
+                              (char*)&g_stCtrlBlock,
+                              buffer,
+                              NETLIB_WRITE_L ) != NETLIB_OK_L ) {
+                return false;
+            }
+        }
+        else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+short PROCESS_EnviarMensajeReverseChannel( const char* destino,
+                                           const char* msg,
+                                           short msg_len, short ack,
+                                           long trace ) {
+    char dest_name[ 17 ];
+    char udata[ 2 ];
+    char buffer[ 4096 ];
+
+    memset( dest_name, 0x00, sizeof( dest_name ) );
+    memset( udata, 0x00, sizeof( udata ) );
+    memset( buffer, 0x00, sizeof( buffer ) );
+
+    sprintf( dest_name, "%-16.16s", destino );
+
+
+    MHDR_INITIALIZE( buffer,
+                    sNetSysName,
+                    dest_name );
+
+    MHDR_SET_SRC_TYPE( buffer, MHDR_SYM_TYPE_PROCESS_L );
+
+    MHDR_SET_NOM_RETURN( buffer, 1 /*on*/ );
+
+    MHDR_SET_MSG_PRIORITY( buffer, 255 );
+
+    if ( ack ) {
+        MHDR_SET_LOGICAL_ACK( buffer, 1 );
+
+        /* le paso el trace en dos pedacitos para que entre
+        y me quedan dos short libres para usar si necesito */
+        MHDR_SET_MSG_PROCESS_WORDS( buffer,
+                                    (short)( trace / 1000 ),
+                                    (short)( trace % 1000 ),
+                                    0,
+                                    0 );
+    }
+
+    MHDR_SET_MSG_TEXT( buffer,
+                        (char*)msg,
+                        msg_len,
+                        udata,
+                        -1 /*no udata*/ );
+
+    if ( netlib_send( (char*)&NetStatus,
+                      (char*)&g_stCtrlBlock,
+                      buffer,
+                      NETLIB_WRITE_L ) != NETLIB_OK_L ) {
+        return false;
+    }
+
+    return true;
+}

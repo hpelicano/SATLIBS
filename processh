@@ -1,0 +1,42 @@
+#ifndef _PROCESS_H_
+#define _PROCESS_H_
+
+#define __XNLIBN__  /* para inclusiones de XNLIB */
+
+#include <xndc>
+
+#define NOT_NETLIB_RCV_READ_POSTED_L  (NETLIB_RCV_READ_POSTED_L + 1)
+#define RCV_TIMED_OUT_L               (NETLIB_RCV_READ_POSTED_L + 2)
+#define RCV_COMPLETION_L              (NETLIB_RCV_READ_POSTED_L + 3)
+#define RCV_COMPLETION_TIMEOUT_L      (NETLIB_RCV_READ_POSTED_L + 4)
+#define RCV_COMPLETION_ERROR_L        (NETLIB_RCV_READ_POSTED_L + 5)
+
+#define MESSAGE_BUFFER_LEN 32000
+
+/* Estructura de control. */
+netlib_cb_def              g_stCtrlBlock;
+netlib_status_detail_def   NetStatus;
+short                      rcv_type;
+char* gBuffer;
+char                       sNetSysName[ 17 ];
+char                       lconf_name[ 27 ];     /*revisar estos dos*/
+char                       collector_name[ 27 ]; /*en la lconfc y
+                                                   en la logutilc*/
+
+short PROCESS_Iniciar( short opt, short depth,
+                       char* sys_name, char* lconf_name,
+                       char* collector_name );
+short PROCESS_Cerrar( void );
+short PROCESS_EsperarMensaje( char* msg, short to );
+short PROCESS_EnviarMensaje( const char* destino, const char* msg,
+                             short msg_len,
+                             short send_type, short ack, long trace );
+
+short PROCESS_EsperarMensajeOCompletion( char* msg, short to, short* fn,
+                                         long* tag,
+                                         short* filesystem_error,
+                                         short* pathsend_error );
+short PROCESS_EnviarMensajeReverseChannel( const char* destino,
+                                           const char* msg, short msg_len,
+                                           short ack, long trace );
+#endif /* _PROCESS_H_ */

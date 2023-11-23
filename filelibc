@@ -1,0 +1,1035 @@
+/* includes propios */
+#include "filelib.h"
+#include "flags.h"
+#include "logutil.h"
+
+/* includes C estandard */
+#include <string.h>             /* strerror() */
+#include <stdlib.h>             /* calloc(), free() */
+
+/* includes de TANDEM */
+#include <tal.h>
+#include <cextdecs>
+
+#define  align_int( v ) (((v) + (sizeof(int)) - 1) & ~((sizeof(int)) - 1))
+
+/* Obtiene informaci�n de un archivo */
+short FILELIB_Info( const char* file_name, FileInfo* fi ) {
+    unsigned short res_length;
+    short error_item;
+    short Stat;
+    short var_item_list[ ] = { 30, 31, 40, 41, 42, 43, 44, 100, 142, 143, 45,
+                               46 };
+    short var_number_of_items = 12;
+    /* all 2 bytes execpt 142,143 that are 4 bytes */
+    short var_values[ sizeof( var_item_list ) + 4 ];
+
+    if ( !fi ) {
+        return false;
+    }
+    /* Paso 2. Obtengo "file_name" file info */
+    Stat = FILE_GETINFOLISTBYNAME_( file_name,
+                               (short)strlen( file_name ),
+                               var_item_list,
+                               var_number_of_items,
+                               var_values,
+                               sizeof( var_values ) * sizeof( short ),
+                               &res_length,
+                               &error_item );
+
+    if ( ( Stat != 0 ) && ( Stat != 2 ) ) {
+        return false;
+    }
+
+    /* Paso 3. Seteo informaci�n */
+    fi->DevType = var_values[ 0 ];
+    fi->DevSubType = var_values[ 1 ];
+    fi->ObjectType = var_values[ 2 ];
+    fi->FileType = var_values[ 3 ];
+    fi->FileCode = var_values[ 4 ];
+    fi->RecLength = var_values[ 5 ];
+    fi->BlockLength = var_values[ 6 ];
+    fi->KeyOffset = -1;
+    fi->KeyLength = -1;
+
+    {
+        /* need bracket for initialization! */
+        /* MUST check if sizeof( long ) == 4 bytes!! */
+        long* tmp = (long*)&var_values[ 8 ];
+        fi->AggrEOF = *tmp;     /* 4 bytes */
+        fi->UsedFileSize = fi->AggrEOF;
+        fi->MaxFileSize = *( tmp + 1 ); /* 4 bytes */
+    }
+
+    /*   Si el tipo es "3" tengo que agregar el item_list 45, 46 */
+    if ( fi->FileType == 3 ) {
+        fi->KeyOffset = var_values[ 12 ];
+        fi->KeyLength = var_values[ 13 ];
+    }
+
+
+    /* Now process var_values[7] */
+    if ( var_values[ 7 ] > 0 ) /* Got Alternate keys! */
+    {
+
+        short var_i_list[ ] = { 101 };
+        short var_n_of_items = 1;
+        short occ, k;
+        short* var_val; /* tama�o variable, alloc dinamico luego */
+
+        /*
+         * Ahora tengo el tama�o del buffer, contemplando
+         * que tenga alineacion int.
+         */
+        occ = (short)( align_int( 12 * var_values[ 7 ] ) );
+        var_val = (short*)calloc( sizeof( char ), occ );
+        if ( !var_val ) {
+            return false;
+        }
+        /* Paso 4.1. Obtengo "file_name" file info */
+        Stat = FILE_GETINFOLISTBYNAME_( file_name,
+                                          (short)strlen( file_name ),
+                                          var_i_list,
+                                          var_n_of_items,
+                                          var_val,
+                                          occ,
+                                          &res_length,
+                                          &error_item );
+        if ( Stat != 0 ) {
+            free( var_val );
+            return false;
+        }
+        /* Paso 4.2. Seteo informaci�n */
+        fi->AltTotalKey = var_values[ 7 ];
+        fi->AltTotalKeyLen = 0;
+        for ( occ = 1, k = 0; k < var_values[ 7 ]; occ += 12, k++ )
+            fi->AltTotalKeyLen += var_val[ occ ];
+        free( var_val );
+    }
+
+    return true;
+}
+
+/* Devuelve la cantidad de registros de un archivo */
+/* Return:  true finished with EOF, false finished with error */
+short FILELIB_Get_Record_Count( short fn, const void* key,
+                              short keylen, FileInfo* fi ) {
+    short Stat;
+    short  save_buf[ 1024 ]; /* para almacenar informacion de posicion */
+    char* buffer;   /* para almacenar temporalmente lo leido */
+
+    if ( fi->UsedFileSize == 0 ) {
+        fi->RecordCnt = 0;
+        return true;
+    }
+
+    /*
+    * Ahora alloco el tama�o del buffer, contemplando
+    * que tenga alineacion int.
+    */
+
+    buffer = (char*)calloc( sizeof( char ), fi->RecLength );
+    if ( !buffer ) {
+        return false;
+    }
+
+    /*
+    * Save current position so to be restored back when finished
+    */
+    Stat = (short)SAVEPOSITION( fn, save_buf );
+    if ( _status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        /*
+        * Now position on first key and read up to eof.
+        */
+        fi->RecordCnt = 0;
+        if ( FILELIB_SetKey( fn, key, keylen, SPEC_PK, MODE_APROX ) ) {
+            while ( ( Stat = FILELIB_Read( fn, buffer, fi->RecLength ) )
+                             > 0 ) {
+                fi->RecordCnt++;
+            }
+        }
+        /*
+         * Restore current position
+         */
+        if ( fi->RecordCnt > 0 ) {
+            Stat = (short)REPOSITION( fn, save_buf );
+        }
+
+        if ( fi->RecordCnt == 0 || _status_eq( Stat ) ) {
+            free( buffer );
+            return true;
+        }
+    }
+    free( buffer );
+    return false;
+}
+
+/* Crea un archivo en base a un template */
+short FILELIB_Create_Like( const char* file_name, const char* tplt_name ) {
+    short maxlen;
+    unsigned short res_length;
+    short error_item;
+    short Stat;
+
+    /*
+     * Paso 1: Defino items list para obtener tama�os variables del buffer
+    */
+    short var_item_list[ ] = { 41, 90, 96, 100, 102, 105 };
+    short var_number_of_items = 6;
+    /* all 2 bytes! */
+    short var_values[ sizeof( var_item_list ) / sizeof( short ) ];
+
+    /*
+     * Paso 2: Defino items list a obtener para create
+    */
+    short* item_list;
+    short number_of_items;
+    short size_values;
+    short* values; /* tama�o variable, alloc dinamico luego */
+    short number_of_pre_alloc_items = 0;
+    short item_103_off = 0;
+    short item_104_off;
+    short occ;
+    char* c_values;
+
+    /*
+     * Paso 3. Obtengo "tplt_name" file info para calcular buffer variable
+     */
+    Stat = FILE_GETINFOLISTBYNAME_( tplt_name,
+                                    (short)strlen( tplt_name ),
+                                    var_item_list,
+                                    var_number_of_items,
+                                    var_values,
+                                    sizeof( var_values ) * sizeof( short ),
+                                    &res_length,
+                                    &error_item );
+    if ( Stat != 0 ) {
+        return false;
+    }
+
+
+    /*
+     * Paso 4. Seteo itemList
+     * item 41 ( var_values[0] ) me dice tipo de archivo
+     *      0 unstructured
+     *      1 relative
+     *      2 entry-sequenced
+     *      3 key-sequenced
+     *
+     * Si el tipo es "3" tengo que agregar el item_list 45, 46, 47, 68, 69
+     *
+     */
+    size_values = 0;
+
+    if ( var_values[ 0 ] == 3 ) {
+        /*
+         * Paso 4.1: Obtengo length of 94
+         */
+
+         /* item list 90 - key-secuenced is partitioned */
+        if ( var_values[ 1 ] > 0 ) {
+            short v_item_list[ ] = { 94 };
+            short v_number_of_items = 1;
+            short v_values[ sizeof( v_item_list ) ]; /* all 2 bytes! */
+            short ilt[ ] = { 41, 42, 43, 44, 45, 46, 47,
+                                                    50, 51, 52, 66, 67, 68, 69,
+                            70, 72, 73, 74, 90, 91, 92,
+                            93, 94, 95, 100, 101, 102, 103, 104 };
+            item_list = &ilt[ 0 ];
+            number_of_items = 29;
+
+            Stat = FILE_GETINFOLISTBYNAME_( tplt_name,
+                                          (short)strlen( tplt_name ),
+                                          v_item_list,
+                                          v_number_of_items,
+                                          v_values,
+                                          sizeof( v_values ) * sizeof( short ),
+                                          &res_length,
+                                          &error_item );
+            if ( Stat != 0 ) {
+                return false;
+            }
+
+            /* item 95 = item 90 * item 94 (var_values[1]*var_values[2])    */
+            size_values += align_int( var_values[ 1 ] * var_values[ 2 ] );
+        }
+        else {
+            short ilt[ ] = { 41, 42, 43, 44, 45, 46, 47, 50, 51, 52, 66, 67,
+                             68, 69, 70, 72, 73, 74, 100, 101, 102, 103, 104 };
+            item_list = &ilt[ 0 ];
+            number_of_items = 23;
+        }
+    }
+    else {
+        short ilt[ ] = { 41, 42, 43, 44, 50, 51, 52, 66, 67, 70, 72, 73, 74,
+                         90, 91, 92, 93, 100, 101, 102, 103, 104 };
+        item_list = &ilt[ 0 ];
+        number_of_items = 22;
+        number_of_pre_alloc_items = 16;
+    }
+
+    /*
+     * Paso 5. Calculo la longitud de los items variables
+     */
+    size_values += (short)( number_of_items * sizeof( short ) );
+    item_103_off += (short)( number_of_pre_alloc_items * sizeof( short ) );
+
+    /*
+     * Ahora aloco espacio para items variables
+     */
+     /* item 91  = 4 * item 90 (var_values[1])*/
+    size_values += 4 * align_int( var_values[ 1 ] );
+    item_103_off += 4 * var_values[ 1 ];
+
+    /* item 92  = 2 * item 90.*/
+    size_values += 2 * align_int( var_values[ 1 ] );
+    item_103_off += 2 * var_values[ 1 ];
+
+    /* item 93  = item 96 (var_values[2]) */
+    size_values += align_int( var_values[ 2 ] );
+    item_103_off += var_values[ 2 ];
+
+    /* item 101 = 12 * item 100 (var_values[3]) */
+    size_values += 12 * align_int( var_values[ 3 ] );
+    item_103_off += 12 * var_values[ 3 ];
+
+    /* item 103 = 2 * item 102 (var_values[4])*/
+    size_values += 2 * align_int( var_values[ 4 ] );
+    item_104_off = (short)( item_103_off + ( 2 * var_values[ 4 ] ) );
+
+    /* item 104 = item 105 (var_values[5]) */
+    size_values += align_int( var_values[ 5 ] );
+    /*
+     * Ahora tengo el tama�o del buffer, contemplando
+     * que tenga alineacion int.
+     */
+    size_values = (short)( align_int( size_values ) );
+    values = (short*)calloc( sizeof( char ), size_values );
+    if ( values == NULL ) {
+        return false;
+    }
+
+    /*
+     * Paso 6. Obtengo tplt_name file info en detalle
+     */
+    Stat = FILE_GETINFOLISTBYNAME_( tplt_name,
+                                    (short)strlen( tplt_name ),
+                                    item_list,
+                                    number_of_items,
+                                    values,
+                                    size_values, /* in bytes! */
+                                    &res_length,
+                                    &error_item );
+
+    if ( Stat != 0 ) {
+        free( values );
+        return false;
+    }
+
+    c_values = (char*)&values[ 0 ];
+
+    for ( occ = 0; occ < var_values[ 4 ]; occ++ ) {
+        char tname[ 128 ];
+        char fname[ 128 ];
+
+        /* guardo el len de esta clave */
+        short len = *( (short*)&c_values[ item_103_off ] );
+        short tlen = (short)( len - 1 );
+        short rlen = tlen;
+        char* buf;
+
+        memset( tname, 0, sizeof( tname ) );
+        memcpy( tname, tplt_name, strlen( tplt_name ) );
+
+        /* busco el . final en el template */
+        while ( tlen > 0 && tname[ tlen ] != '.' )
+            tlen--;
+
+        /* busco el . final en el fname */
+        while ( rlen > 0 &&
+                ( (char*)&c_values[ item_104_off ] )[ rlen ] != '.' )
+            rlen--;
+
+        memcpy( (char*)&tname[ tlen + 1 ],
+                (char*)&( (char*)&c_values[ item_104_off ] )[ rlen + 1 ],
+                len - rlen );
+
+        memset( fname, 0, sizeof( fname ) );
+
+        memcpy( fname, (char*)&c_values[ item_104_off ], len );
+
+        if ( ( buf = (char*)strstr( fname, "YYMMDD" ) ) != NULL &&
+             (short)( buf - (char*)&fname[ 0 ] ) < len ) {
+            memcpy( buf, file_name + ( strlen( file_name ) - 6 ), 6 );
+        }
+        else
+            return false;
+
+        maxlen = (short)strlen( file_name );
+        rlen = maxlen - 1;
+        /* busco el . final en el filename */
+        while ( rlen > 0 && file_name[ rlen ] != '.' )
+            rlen--;
+
+        memcpy( fname, (char*)&file_name[ 0 ], rlen + 1 );
+
+        memcpy( &c_values[ item_104_off ], fname, len );
+        FILELIB_Create_Like( fname, tname );
+
+        item_103_off += sizeof( short );
+        item_104_off += len;
+    }
+
+    /*
+     * Paso 7. Crear file_name con los atributos obtenidos
+     */
+    maxlen = (short)strlen( file_name );
+
+    Stat = FILE_CREATELIST_( (char*)file_name,
+                             maxlen,
+                             &maxlen,
+                             item_list,
+                             number_of_items,
+                             values,
+                             res_length,
+                             &error_item );
+
+    free( values );
+    return (short)( Stat != 0 ? false : true );
+}
+
+
+/* Crea un archivo Entry Sequence */
+short FILELIB_Create_EntrySeq( const char* file_name,
+                            const short file_code,
+                            const short record_len,
+                            const short block_len,
+                            const short p_ext,
+                            const short s_ext,
+                            const short m_ext,
+                            const short w_through ) {
+    short maxlen;
+    short item_list[ ] = { 41, 42, 43, 44, 50, 51, 52, 72 };
+    short number_of_items = sizeof( item_list ) / sizeof( short );
+    short values[ sizeof( item_list ) / sizeof( short ) ]; /* Valido solo para
+                                                              parametros de
+                                                              2 bytes... */
+    maxlen = (short)strlen( file_name );
+
+    values[ 0 ] = 2;            /* 41: File type = ENTRY SEQUENCE */
+    values[ 1 ] = file_code;    /* 42: File code */
+    values[ 2 ] = record_len;   /* 43: Logical record length */
+    values[ 3 ] = block_len;    /* 44: Block length */
+    values[ 4 ] = p_ext;        /* 50: Primary extents size */
+    values[ 5 ] = s_ext;        /* 51: Secondary extents size */
+    values[ 6 ] = m_ext;        /* 52: Max extents */
+    values[ 7 ] = w_through;    /* 72: Write through */
+
+    return FILE_CREATELIST_( (char*)file_name,
+                            maxlen,
+                            &maxlen,
+                            item_list,
+                            number_of_items,
+                            values,
+                            sizeof( values ) );
+}
+
+
+/* Crea un archivo Key Sequence */
+short FILELIB_Create_KeySeq( const char* file_name,
+                          const short file_code,
+                          const short record_len,
+                          const short block_len,
+                          const short p_ext,
+                          const short s_ext,
+                          const short m_ext,
+                          const short w_through,
+                          const short k_offset,
+                          const short k_len ) {
+    short maxlen;
+    short item_list[ ] = { 41, 42, 43, 44, 45, 46, 47, 50, 51, 52, 72 };
+    short number_of_items = sizeof( item_list ) / sizeof( short );
+    short values[ sizeof( item_list ) / sizeof( short ) ]; /* Valido solo para
+                                                              parametros de
+                                                              2 bytes... */
+    maxlen = (short)strlen( file_name );
+
+    values[ 0 ] = 3;            /* 41: File type = KEY SEQUENCE */
+    values[ 1 ] = file_code;    /* 42: File code */
+    values[ 2 ] = record_len;   /* 43: Logical record length */
+    values[ 3 ] = block_len;    /* 44: Block length */
+    values[ 4 ] = k_offset;     /* 45: Key offset */
+    values[ 5 ] = k_len;        /* 46: Key length */
+    values[ 6 ] = 0;            /* 47: Lock-key length */
+    values[ 7 ] = p_ext;        /* 50: Primary extents size */
+    values[ 8 ] = s_ext;        /* 51: Secondary extents size */
+    values[ 9 ] = m_ext;        /* 52: Max extents */
+    values[ 10 ] = w_through;    /* 72: Write through */
+
+    return FILE_CREATELIST_( (char*)file_name,
+                            maxlen,
+                            &maxlen,
+                            item_list,
+                            number_of_items,
+                            values,
+                            sizeof( values ) );
+}
+
+
+/* Abre un archivo y devuelve su fn */
+short FILELIB_Open( const char* filename, short access, short exclusion,
+                    short* error ) {
+    short fd;
+    short stat;
+
+    /*
+     * Valores posibles:
+     *             0 Read-write
+     *      1 Read only
+     *      2 Write only
+     *      3 Extend (supported only for tape)
+     */
+     /*short access = 0;*/
+
+     /*
+      * Valores posibles:
+      *             0 Shared,
+      *      1 Exclusive
+      *      2 Process exclusive (supported only for Optical Storage Facility)
+      *      3 Protected
+      *      The default is 0.
+      */
+      /*short exclusion = 0;*/
+
+    /*
+     * Paso 1. Abrir filename, retornar fd (-1 on error)
+     */
+     /* mod 625a (se agrega parametro 64-bits Primary Key a la funcion
+        solo cuando
+        la apertura normal da error) */
+    stat = FILE_OPEN_( filename,
+                      (short)strlen( filename ),
+                      &fd,
+                      access,
+                      exclusion,
+                      ,                                   /* nowait-depth */
+                      1 ); /* sync-depth = 1 asegura integridad de datos */
+
+    if ( stat == 580 ) /* An open failed because the file was oversize and
+                          the opener
+                          did not specify use of 64-bit primary keys. */
+    {
+        stat = FILE_OPEN_( filename,
+                         (short)strlen( filename ),
+                         &fd,
+                         access,
+                         exclusion,
+                         ,                        /* nowait-depth */
+                         1, /* sync-depth = 1 asegura integridad de datos */
+                         ,                        /* options */
+                         ,                        /* sbb id */
+                         ,                        /* sbb len */
+                         ,                        /* primary process handle */
+                         (__int32_t)0x00000001 ); /* 64-bits Primary Key
+                                       (para abrir archivos de mas de 4 GB) */
+    }
+
+    if ( error != 0 )
+        *error = stat;
+
+    return fd;
+}
+
+
+/* Abre un archivo con Sequencial Block Buffer y devuelve su fn */
+short FILELIB_OpenSBB( const char* filename, short access, short exclusion,
+                       short sbbLen, short* error ) {
+    short fd;
+    short stat;
+
+    /*
+     * Valores posibles access:
+     *      0 Read-write
+     *      1 Read only
+     *      2 Write only
+     *      3 Extend (supported only for tape)
+     */
+
+     /*
+      * Valores posibles exclusion:
+      *      0 Shared,
+      *      1 Exclusive
+      *      2 Process exclusive (supported only for Optical Storage Facility)
+      *      3 Protected
+      */
+
+      /*
+       * Paso 1. Abrir filename, retornar fd (-1 on error)
+       */
+       /* mod 625a (se agrega parametro 64-bits Primary Key a la funcion solo
+          cuando la apertura normal da error) */
+    stat = FILE_OPEN_( filename,
+                      (short)strlen( filename ),
+                      &fd,
+                      access,
+                      exclusion,
+                      0,
+                      1, /* sync-depth = 1 asegura integridad de datos */
+                      0,
+                      0,
+                      sbbLen );
+
+    if ( stat == 580 ) /* An open failed because the file was oversize and the
+                          opener did not specify use of 64-bit primary keys. */
+    {
+        stat = FILE_OPEN_( filename,
+                         (short)strlen( filename ),
+                         &fd,
+                         access,
+                         exclusion,
+                         0,                       /* nowait-depth */
+                         1, /* sync-depth = 1 asegura integridad de datos */
+                         0,                       /* options */
+                         0,                       /* sbb id */
+                         sbbLen,                  /* sbb len */
+                         ,                        /* primary process handle */
+                         (__int32_t)0x00000001 ); /* 64-bits Primary Key
+                                    (para abrir archivos de mas de 4 GB) */
+    }
+
+    if ( error != 0 )
+        *error = stat;
+
+    if ( fd != -1 )
+        SETMODE( fd, 72, 1 );
+
+    return fd;
+}
+
+
+/* Cierra el archivo referenciado por el fn */
+short FILELIB_Close( short fn ) {
+    short Stat;
+
+    if ( fn <= 0 ) return false;
+    /* Paso 1. Cerrar file descriptor */
+    Stat = FILE_CLOSE_( fn );
+
+    if ( Stat != 0 ) {
+        return false;
+    }
+    return true;
+}
+
+/* Posiciona el archivo abierto en un registro por clave */
+short FILELIB_SetKey( short fn, const void* key, short keylen,
+                   const char* spec, short mode ) {
+    short keyid;
+    short Stat;
+    /*
+    * Paso 1. Posicionarse en offset de "key" dentro del archivo
+    *
+    */
+    keyid = (short)( ( spec ) ? ( *spec * 256 + *( spec + 1 ) ) : 0 );
+
+    Stat = FILE_SETKEY_( fn, key, keylen, keyid, mode );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        return false;
+    }
+    return true;
+}
+
+/* Posiciona el archivo abierto en un registro por posicion*/
+short FILELIB_SetPos( short fn, double pos ) {
+    /*
+    * Paso 1. Posicionarse en offset de "key" dentro del archivo
+    *
+    */
+    short Stat = FILE_SETPOSITION_( fn, (long long)pos );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        return false;
+    }
+    return true;
+}
+
+/* Devuelve la cantidad leida */
+short FILELIB_Read( short fn, void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Leer "bufferlen" bytes desde "fn", guardarlos en "buffer"
+    *          retornar cantidad leida
+    *
+    * NOTA: No hace falta un READLOCK????
+    *
+    */
+
+    int Stat = READX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+    if ( Stat != 0 ) /* ver tal.h : >0 EOF, 0 OK, <0 ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* Devuelve la cantidad leida */
+short FILELIB_ReadUpdate( short fn, void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Leer "bufferlen" bytes desde "fn", guardarlos en "buffer"
+    *          retornar cantidad leida
+    *
+    * NOTA: No hace falta un READLOCK????
+    *
+    */
+
+    int Stat = READUPDATEX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+    if ( Stat != 0 ) /* ver tal.h : >0 EOF, 0 OK, <0 ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* Devuelve la cantidad leida */
+short FILELIB_ReadUpdateLock( short fn, void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Leer "bufferlen" bytes desde "fn", guardarlos en "buffer"
+    *          retornar cantidad leida
+    */
+    int Stat = READUPDATELOCKX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+    if ( Stat != 0 ) /* ver tal.h : >0 EOF, 0 OK, <0 ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+
+short FILELIB_ReadLock( short fn, void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Leer "bufferlen" bytes desde "fn", guardarlos en "buffer"
+    *          retornar cantidad leida
+    */
+    int Stat = READLOCKX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+    if ( Stat != 0 ) /* ver tal.h : >0 EOF, 0 OK, <0 ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* Escribe un nuevo registro, Devuelve la cantidad escrita */
+short FILELIB_Write( short fn, const void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Grabar "bufferlen" bytes en "fn", tomados de "buffer"
+    *          retornar cantidad grabada
+    */
+
+    int Stat = WRITEX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* Escribe un registro existente, Devuelve la cantidad escrita */
+short FILELIB_Update( short fn, const void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Actualizar "bufferlen" bytes en "fn", tomados de "buffer"
+    *          retornar cantidad grabada
+    */
+
+    int Stat = WRITEUPDATEX( fn, buffer, bufferlen, (unsigned short*)&cnt );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* Escribe un registro existente, Devuelve la cantidad escrita */
+short FILELIB_WriteUpdateUnlock( short fn, void* buffer, short bufferlen ) {
+    short cnt;
+
+    /*
+    * Paso 1. Actualizar "bufferlen" bytes en "fn", tomados de "buffer"
+    *          retornar cantidad grabada
+    */
+    int Stat = WRITEUPDATEUNLOCKX( fn, buffer, bufferlen,
+                                   (unsigned short*)&cnt );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        cnt = 0;
+    }
+    return cnt;
+}
+
+/* devuelve el codigo del ultimo error en un archivo abierto */
+short FILELIB_Last_Error( short fn ) {
+    short rc;
+    short last_error;
+    char  filename[ 256 ];
+    short filename_len;
+    short info[ 5 ];
+    short flags;
+
+    rc = FILE_GETINFO_( fn, &last_error, filename, 255, &filename_len, info,
+                        &flags );
+    if ( rc == 0 ) {
+        filename[ filename_len ] = '\0';
+        if ( !strlen( filename ) ) strcpy( filename, "ULTIMA OPERACION" );
+        return last_error;
+    }
+    /* no se pudo obtener */
+    return -1;
+}
+
+/* Devuelve la posicion actual de un archivo usando la vieja SAVEPOSITION
+   (no soporta FROMAT 2 files).
+   En version 6 se debera usar la FILE_SAVEPOSITION en lugar de la SAVEPOSITION
+   pero tener en cuenta que el save_buf tendra que tener otro tamanio. */
+short FILELIB_SavePosition_Old( short fn, short* save_buf ) {
+    short Stat;
+
+    Stat = (short)SAVEPOSITION( fn, save_buf );
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        return false;
+    }
+    return true;
+}
+
+/* Setea la posicion actual de un archivo usando la vieja REPOSITION
+  (no soporta FROMAT 2 files)
+  En version 6 se debera usar la FILE_RESTOREPOSITION en lugar de la REPOSITION
+  pero tener en cuenta que el save_buf tendra que tener otro tamanio. */
+short FILELIB_RestorePosition_Old( short fn, short* save_buf ) {
+    short Stat;
+
+    Stat = (short)REPOSITION( fn, save_buf );
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        return false;
+    }
+    return true;
+}
+
+/* Devuelve la posicion actual de un archivo usando la FILE_SAVEPOSITION_
+   que soporta FROMAT 2 files. */
+short FILELIB_SavePosition( short fn, short* save_buf, short save_max,
+                            short* save_size ) {
+    return FILE_SAVEPOSITION_( fn, save_buf, save_max, save_size );
+}
+
+/* Setea la posici�n actual de un archivo usando la FILE_RESTOREPOSITION_
+   que soporta FROMAT 2 files. */
+short FILELIB_RestorePosition( short fn, short* save_buf, short save_size ) {
+    return FILE_RESTOREPOSITION_( fn, save_buf, save_size );
+}
+
+/* borra un archivo cerrado */
+short FILELIB_Purge( const char* fname ) {
+    int Stat = FILE_PURGE_( fname, (short)strlen( fname ) );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        LOGUTIL_Log( LLDEBUG, MSG_FREE_FORM, "FILELIB",
+                                "ERROR %hi en FILE_PURGE_", strerror( Stat ) );
+        return false;
+    }
+    return true;
+}
+
+/* renombra un archivo abierto */
+short FILELIB_Rename( short fn, const char* new_name ) {
+    int Stat = FILE_RENAME_( fn, new_name, (short)strlen( new_name ) );
+
+    if ( !_status_eq( Stat ) ) /* ver tal.h : 0=EOF, 1=OK, 2=ERR */
+    {
+        LOGUTIL_Log( LLDEBUG, MSG_FREE_FORM, "FILELIB",
+                     "ERROR %hi en FILE_RENAME_",
+                     FILELIB_Last_Error( fn ) );
+
+        return false;
+    }
+    return true;
+}
+
+short FILELIB_GetOpenStatus( const char* file_name ) {
+    unsigned short res_length;
+    short error_item;
+    short Stat;
+
+    short var_item_list[ ] = { 75 };
+    short var_number_of_items = 1;
+    short var_values[ sizeof( var_item_list ) + 4 ];
+
+    /*
+        Paso 2. Obtengo "file_name" file info
+    */
+    Stat = FILE_GETINFOLISTBYNAME_( file_name,
+                                    (short)strlen( file_name ),
+                                    var_item_list,
+                                    var_number_of_items,
+                                    var_values,
+                                    sizeof( var_values ) * sizeof( short ),
+                                    &res_length,
+                                    &error_item );
+    if ( Stat != 0 ) {
+        /* Hay error */
+        LOGUTIL_Log( LLDEBUG, MSG_FREE_FORM, "FILELIB",
+                     "ERROR [%s (%d)] en FILE_GETINFOLISTBYNAME_ - FName %s",
+                     strerror( Stat ), Stat, file_name );
+
+        return ( Stat = 1 ? FILE_DOES_NOT_EXISTS : FILE_WITH_ERROR );
+    }
+
+    /*
+        Paso 3. Retorno informaci�n, 0 == close, 1 == open.
+    */
+    return (short)( var_values[ 0 ] == 0 ? FILE_IS_CLOSE : FILE_IS_OPEN );
+
+}
+
+
+/*
+    Funcion:
+            Obtener la informacion de la estructura de un archivo en base a
+            su path.
+    Parametros:
+            file_name   --> Path del archivo template deseado.
+            file_struct --> Estructura de dato donde se alojaran
+                            los resultados.
+    Retorno:
+              0 --> Se ejecuto sin problemas.
+             -1 --> Parametro de funcion nulo.
+            > 0 --> Codigo de error en caso de ejecucion fallida.
+*/
+short FILELIB_GetFileStructureInfo_KeySeq( const char* file_name,
+                                           File_StructInfo* file_struct ) {
+
+    unsigned short res_length;
+    short error_item,
+        error,
+        /* Defino la lista de items que necesitamos obtener */
+        var_item_list[ ] = { 41,   /* File type */
+                            42,   /* File code */
+                            43,   /* Logical record length */
+                            44,   /* Block length */
+                            45,   /* Key offset, para archivos key-sequence */
+                            46,   /* Key length, para archivos key-sequence */
+                            50,   /* Primary extent size */
+                            51,   /* Secondary extent size */
+                            52 }, /* Maximun extents */
+        var_number_of_items = sizeof( var_item_list ) / sizeof( short ),
+        var_values[ sizeof( var_item_list ) / sizeof( short ) ];
+
+    /* Verificamos los parametros */
+    if ( !file_name || !file_struct )
+        return -1;
+
+    /* Obtenemos la informaci�n deseada */
+    error = FILE_GETINFOLISTBYNAME_( file_name,
+                                     (short)strlen( file_name ),
+                                     var_item_list,
+                                     var_number_of_items,
+                                     var_values,
+                                     sizeof( var_values ),
+                                     &res_length,
+                                     &error_item );
+    if ( error )
+        return error;
+
+    /* Completamos la informaci�n necesaria de salida */
+    file_struct->fileType = var_values[ 0 ];
+    file_struct->fileCode = var_values[ 1 ];
+    file_struct->recordLength = var_values[ 2 ];
+    file_struct->blockLength = var_values[ 3 ];
+    file_struct->keyOffset = var_values[ 4 ];
+    file_struct->keyLength = var_values[ 5 ];
+    file_struct->primaryExtentSize = var_values[ 6 ];
+    file_struct->secondaryExtentSize = var_values[ 7 ];
+    file_struct->maxExtents = var_values[ 8 ];
+
+    return 0;
+}
+
+/*
+    Funci�n:
+            Obtener la informaci�n de la estructura de un archivo en base a
+            su path.
+    Parametros:
+            file_name   --> Path del archivo template deseado.
+            file_struct --> Estructura de dato donde se alojaran
+                            los resultados.
+    Retorno:
+              0 --> Se ejecuto sin problemas.
+             -1 --> Parametro de funcion nulo.
+            > 0 --> Codigo de error en caso de ejecucion fallida.
+*/
+short FILELIB_GetFileStructureInfo_EntrySeq( const char* file_name,
+                                             File_StructInfo* file_struct ) {
+
+    unsigned short res_length;
+    short error_item,
+        error,
+        /* Defino la lista de items que necesitamos obtener */
+        var_item_list[ ] = { 41,   /* File type */
+                            42,   /* File code */
+                            43,   /* Logical record length */
+                            44,   /* Block length */
+                            50,   /* Primary extent size */
+                            51,   /* Secondary extent size */
+                            52 }, /* Maximun extents */
+        var_number_of_items = sizeof( var_item_list ) / sizeof( short ),
+        var_values[ sizeof( var_item_list ) / sizeof( short ) ];
+
+    /* Verificamos los parametros */
+    if ( !file_name || !file_struct )
+        return -1;
+
+    /* Obtenemos la informaci�n deseada */
+    error = FILE_GETINFOLISTBYNAME_( file_name,
+                                     (short)strlen( file_name ),
+                                     var_item_list,
+                                     var_number_of_items,
+                                     var_values,
+                                     sizeof( var_values ),
+                                     &res_length,
+                                     &error_item );
+    if ( error )
+        return error;
+
+    /* Completamos la informaci�n necesaria de salida */
+    file_struct->fileType = var_values[ 0 ];
+    file_struct->fileCode = var_values[ 1 ];
+    file_struct->recordLength = var_values[ 2 ];
+    file_struct->blockLength = var_values[ 3 ];
+    file_struct->primaryExtentSize = var_values[ 4 ];
+    file_struct->secondaryExtentSize = var_values[ 5 ];
+    file_struct->maxExtents = var_values[ 6 ];
+
+    return 0;
+}
+
+
+/* FILELIBC FIN */

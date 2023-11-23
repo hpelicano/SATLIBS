@@ -1,0 +1,157 @@
+#include "logutil.h"
+#include "convert.h"
+#include "sisddl.h"
+#include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+
+#include <cextdecs>
+
+#define extptr /* definir antes de incluir xncext*/
+#include <xncext>
+#include <xndc>
+#include <zemsc>
+#include <zpwyc>
+/*#include "sisddl.h"*/
+
+
+short LOGUTIL_fn;
+ebu_event_buffer_cb_def    event_buffer_cb;
+elu_event_log_cb_def       event_log_cb;
+
+char* LOGUTIL_str;
+char* LOGUTIL_ems_buffer;
+char LOGUTIL_sys_name[ 16 ];
+short LOGUTIL_log_level;
+
+#define LOG_BUFFER_LEN 2048
+
+/*
+* Funcion para iniciar el logguer a la cual se le pasa el colector alternativo
+* para que cuando no pueda escribir en el principal, escriba en el alternativo
+* y no se pierdan los datos.
+*/
+short LOGUTIL_Iniciar( const char* pri_collector_name, const char* sys_name,
+                       const char* group, const char* type,
+                       const char* alt_collector_name ) {
+    short s1;
+    short s2;
+
+    LOGUTIL_str = (char*)( calloc( LOG_BUFFER_LEN, sizeof( char ) ) );
+    LOGUTIL_ems_buffer = (char*)( calloc( LOG_BUFFER_LEN, sizeof( char ) ) );
+
+    if ( event_log_init( &s1, &s2,
+                         (short*)&event_buffer_cb, EBU_BUF_CB_VER_CURR_L,
+                         (short*)&event_log_cb, ELU_LOG_CB_VER_CURR_L,
+                         1 /* return logic errors */,
+                         (char*)pri_collector_name,
+                         /* dflt pri tlimit */,
+                         /* no pri io tag */,
+                         (char*)alt_collector_name,
+                         /* no dflt alt tlimit */,
+                         /* no alt io tag */ ) != ELU_OK_L ) return false;
+    /* Constantes definidas en la ddl de los templates de EMS */
+    memcpy( (char*)&event_buffer_cb.gen_ssid.z_owner, "TANDEM", 6 );
+    /*event_buffer_cb.gen_ssid.z_number = 8;*/
+    event_buffer_cb.gen_ssid.z_number = 12;
+    /*event_buffer_cb.gen_ssid.z_version = 19457;*/
+    event_buffer_cb.gen_ssid.z_version = ZEMS_VAL_VERSIONL01;
+
+    CONVERT_memprintf( event_buffer_cb.product_group.val, 8, "%-8.8s", group );
+    /*memcpy(event_buffer_cb.product_group.val,group,8);*/
+    memcpy( event_buffer_cb.product.val, "L01     ", 8 );
+    CONVERT_memprintf( event_buffer_cb.module_type.val, 8, "%-8.8s", type );
+    /*memcpy(event_buffer_cb.module_type.val,type,8);*/
+    CONVERT_memprintf( event_buffer_cb.generator.val, 16, "%-16.16s",
+                       sys_name );
+    /*memcpy(event_buffer_cb.generator.val,sys_name,16);*/
+    memcpy( LOGUTIL_sys_name, event_buffer_cb.generator.val, 16 );
+    event_buffer_cb.console_print = true;
+    LOGUTIL_log_level = LLERROR;
+    return true;
+}
+
+short LOGUTIL_Attach( void ) {
+    LOGUTIL_str = (char*)( calloc( LOG_BUFFER_LEN, sizeof( char ) ) );
+    LOGUTIL_ems_buffer = (char*)( calloc( LOG_BUFFER_LEN, sizeof( char ) ) );
+
+    return true;
+}
+
+short LOGUTIL_Cerrar( void ) {
+    free( LOGUTIL_str );
+    free( LOGUTIL_ems_buffer );
+    return true;
+}
+
+
+short LOGUTIL_Log( short level, short code, const char* fmt, ... ) {
+    va_list argptr;
+    short s1;
+    short s2;
+    short bytes_used;
+    char* ptr;
+
+    if ( level > LOGUTIL_log_level ) return true;
+    va_start( argptr, fmt );
+
+    /* Reseteo las variables static de la API ELU y EBU a sus valores
+       originales*/
+    event_log_reset( &s1, &s2, (short*)&event_buffer_cb,
+                     (short*)&event_log_cb );
+
+    event_buffer_cb.event_num = code;
+    event_buffer_cb.emphasis = ( level == LLPANIC ) ? true : false;
+
+    sprintf( LOGUTIL_str, "FROM: %-16.16s ", LOGUTIL_sys_name );
+    ptr = &LOGUTIL_str[ strlen( LOGUTIL_str ) ];
+
+    switch ( event_buffer_cb.event_num ) {
+    case MSG_FREE_FORM:
+        vsprintf( ptr, fmt, argptr );
+        break;
+    case LCONF_ERROR: /* 101 */
+        sprintf( ptr, "ERROR AL INICIAR LCONF" );
+        event_buffer_cb.emphasis = true;
+        break;
+    case APPL_ERROR:                                                 /* 103 */
+        strcpy( ptr, "ERROR AL INICIAR APLICACION" );
+        event_buffer_cb.emphasis = true;
+        break;
+    case INIT_OK:                                                    /* 105 */
+        strcpy( ptr, "APLICATION INITIALIZE" );
+        event_buffer_cb.emphasis = true;
+        break;
+    case SIMCOM_EMPTY:
+        vsprintf( ptr, fmt, argptr );
+        event_buffer_cb.emphasis = true;
+        break;
+    case ATALLA_ERROR:
+        vsprintf( ptr, fmt, argptr );
+        event_buffer_cb.emphasis = true;
+        break;
+    default:
+        vsprintf( ptr, fmt, argptr );
+        break;
+    }
+    va_end( argptr );
+
+    event_buffer_cb.subject[ 0 ].tkn.u_z_tkn.z_tkncode = ZEMS_TKN_TEXT;
+    event_buffer_cb.subject[ 0 ].val_addr = (long)LOGUTIL_str;
+    event_buffer_cb.subject[ 0 ].len = (short)strlen( LOGUTIL_str );
+
+    event_log( &s1, &s2, (short*)&event_buffer_cb, (short*)&event_log_cb,
+                    (short*)LOGUTIL_ems_buffer, 2048, &bytes_used );
+    return true;
+}
+
+short LOGUTIL_Set_Loglevel( short level ) {
+    if ( level > 0 ) LOGUTIL_log_level = level;
+    /*LOGUTIL_Log(LLPANIC, MSG_FREE_FORM, "LOGLEVEL: %hi", LOGUTIL_log_level);*/
+    LOGUTIL_Log( LLPANIC, 512, "LOGLEVEL: %hi", LOGUTIL_log_level );
+    return LOGUTIL_log_level;
+}

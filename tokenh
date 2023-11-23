@@ -1,0 +1,377 @@
+#ifndef _TOKEN_H
+#define _TOKEN_H
+
+/* Token Defines */
+/* -- token format              -- */
+#define binary_frmt_l              0
+#define ascii_frmt_l               1
+
+/* token utilities response     -- */
+#define tkn_compl_ok_l             0
+#define tkn_exist_l                10
+#define tkn_not_exist_l            11
+#define tkn_lmt_exceed_l           21
+#define tkn_addr_oob_l             22
+#define tkn_err_mem_alloc_l        90
+#define tkn_area_not_init_l        91
+#define tkn_no_space_avail_l       92
+
+/* -- token area header defines -- */
+#define ascii_hdr_lgth_l           12
+#define ascii_hdr_cnt_posn_l       2
+#define ascii_hdr_lgth_posn_l      7
+#define ascii_hdr_cnt_lgth_l       5
+#define ascii_hdr_lgth_lgth_l      5
+
+#define binary_hdr_lgth_l          6
+#define binary_hdr_cnt_posn_l      1
+#define binary_hdr_lgth_posn_l     2
+
+/* -- token header defines     -- */
+#define ascii_tkn_hdr_lgth_l       10
+#define ascii_tkn_hdr_lgth_posn_l  4
+#define ascii_tkn_hdr_lgth_lgth_l  5
+#define ascii_tkn_hdr_rsvrd_posn_l 9
+#define ascii_tkn_hdr_rsvrd_lgth_l 1
+
+#define binary_tkn_hdr_lgth_l      6
+#define binary_tkn_hdr_lgth_posn_l 2
+
+#define tkn_hdr_id_posn_l          2
+/* ------------------------------ */
+
+/* Type definitions */
+/* Internal msg (binary) token definitions */
+typedef struct __hdr_tkn_area_binary {
+    char eye_catcher;
+    char blank;
+    short count;
+    short len;
+} hdr_tkn_area_binary_def;
+
+typedef struct __tkn_hdr_binary {
+    char eye_catcher;
+    char blank;
+    char id[ 2 ];
+    short len;
+} tkn_hdr_binary_def;
+
+/* External msg (ascii) token definitions */
+typedef struct __hdr_tkn_area_ascii {
+    char eye_catcher;
+    char blank;
+    char count[ 5 ];
+    char len[ 5 ];
+} hdr_tkn_area_ascii_def;
+
+typedef struct __tkn_hdr_ascii {
+    char eye_catcher;
+    char blank;
+    char id[ 2 ];
+    char len[ 5 ];
+    char blank2;
+} tkn_hdr_ascii_def;
+
+
+/* General token definitions */
+typedef struct __token {
+    void* hdr;
+    char* data;
+} token_def;
+
+typedef struct __tkn_node {
+    token_def* tkn;
+    struct __tkn_node* next;
+} tkn_node_def;
+
+typedef struct __tkn_area {
+    short format;
+    short buf_ofst;
+    short max_buf_len;
+    short core_len;
+    short userdata;
+    short hdr_present;
+    void* header;
+    tkn_node_def* tkn_list;
+} tkn_area_def;
+
+/* Functions declarations */
+
+//=============================================================================
+// @Method:  tkn_area_get
+// @Brief:   Analiza el mensaje para determinar si el mismo tiene espacio
+//           para tokens. Si ya hay un area de tokens presente, devuelve un
+//           puntero a la misma. Si no tiene, y hay espacio disponible,
+//           devuelve un puntero al lugar del mensaje en donde debe ubicarse
+//           el area.
+// @Params:  IN  - msg         - puntero al mensaje pstm, stm, iso, etc
+//           IN  - msg_ofst    - offset a partir del cual deberia estar el area
+//                               de tokens en el mensaje
+//           IN  - max_msg_len - maximo largo soportado del mensaje
+//           IN  - frmt        - formato del area de tokens:
+//                               binary_frmt_l (pstm, stm)
+//                               ascii_frmt_l  (iso)
+//           OUT - stat        - resultado de la funcion:
+//                               tkn_compl_ok_l       = Todo OK
+//                               tkn_not_exist_l      = No hay area de tokens
+//                                                      (ok)
+//                               tkn_addr_oob_l       = Address out of bounds
+//                               tkn_no_space_avail_l = No hay espacio para
+//                                                      tokens
+//                               tkn_err_mem_alloc_l  = Error en reserva de
+//                                                      memoria
+// @Return:
+//           tkn_area_def* = Puntero al area de tokens
+//           NULL          = (stat != tkn_compl_ok_l
+//                            stat != tkn_not_exist_l)
+//=============================================================================
+tkn_area_def* tkn_area_get( void* msg, short msg_ofst, short max_msg_len,
+                            short frmt,
+                            short userdata, short* stat );
+
+//=============================================================================
+// @Method:  tkn_node_create (uso interno de la libreria)
+// @Brief:   Crea un nodo token a partir del puntero al header y a sus datos
+// @Params:  IN - thdr        - puntero al header del token
+//           IN - tdata_ptr   - puntero a la data del token
+// @Return:
+//           tkn_node_def* = Puntero al nodo creado
+//           NULL          = si hubo algun error
+//=============================================================================
+tkn_node_def* tkn_node_create( void* thdr, char* tdata_ptr );
+
+//=============================================================================
+// @Method:  tkn_node_push (uso interno de la libreria)
+// @Brief:   Inserta un nodo token al final de la lista de nodos
+// @Params:  IN/OUT - head - direccion de memoria del puntero a la lista
+//                           (puntero al puntero)
+//           IN     - tk   - puntero al node a agregar
+// @Return:
+//=============================================================================
+void tkn_node_push( tkn_node_def** head, tkn_node_def* tk );
+
+//=============================================================================
+// @Method:  tkn_get (VARIABLE)
+// @Brief:   Busca en el area de tokens el tkn id requerido y devuelve un
+//           puntero al mismo (si existe) o NULL (si no existe).
+// @Params:  IN  - area    - puntero al area de tokens
+//           IN  - tkn_id  - id del token a buscar
+//           OUT - stat    - resultado de la funcion:
+//                           tkn_compl_ok_l       = Token presente
+//                           tkn_not_exist_l      = Token no existe
+//                           tkn_area_not_init_l  = Area de tokens en NULL
+//           OUT - tkn_len - Largo del token obtenido
+//                           0 -> si no esta presente
+//                           (OPCIONAL)
+// @Return:
+//           void* = Puntero al token (castearlo al struct del tkn)
+//           NULL  = (stat != tkn_compl_ok_l)
+//=============================================================================
+void* tkn_get( tkn_area_def* area, const char* tkn_id, short* stat,
+               short* tkn_len );
+#pragma function tkn_get (variable)
+
+//=============================================================================
+// @Method:  tkn_node_get (uso interno de la libreria) (VARIABLE)
+// @Brief:   Busca en el area de tokens el tkn id requerido y devuelve un
+//           puntero al mismo (si existe) o NULL (si no existe).
+// @Params:  IN  - area   - puntero al area de tokens
+//           IN  - tkn_id - id del token a buscar
+//           OUT - stat   - resultado de la funcion:
+//                          tkn_compl_ok_l       = Nodo/Token presente
+//                          tkn_not_exist_l      = Nodo/Token no existe
+//                          tkn_area_not_init_l  = Area de tokens en NULL
+//           OUT - pos    - posicion del nodo en la lista de nodos
+//                          (OPCIONAL)
+//           OUT - ofst   - ofset del nodo desde el header del area
+//                          (OPCIONAL)
+// @Return:
+//           tkn_node_def* = Puntero al nodo token
+//           NULL          = (stat != tkn_compl_ok_l)
+//=============================================================================
+tkn_node_def* tkn_node_get( tkn_area_def* area, const char* tkn_id,
+                            short* stat, short* pos, short* ofst );
+#pragma function tkn_node_get (variable)
+
+//=============================================================================
+// @Method:  tkn_node_del (uso interno de la libreria)
+// @Brief:   Borra un nodo de la lista de nodos token segun el token id.
+// @Params:  IN/OUT - head   - puntero al puntero de la lista de nodos token
+//           IN     - tkn_id - id del token a buscar
+// @Return:
+//           tkn_compl_ok_l  = OK
+//           tkn_not_exist_l = Nodo/Token no existe
+//=============================================================================
+short tkn_node_del( tkn_node_def** head, const char* tkn_id );
+
+//=============================================================================
+// @Method:  tkn_add
+// @Brief:   Agrega un token al mensaje/area de tokens.
+// @Params:  IN/OUT - area    - puntero al puntero al area de tokens
+//           IN     - tkn_id  - id del token a buscar
+//           IN     - tkn_ptr - puntero a los datos del token
+//           IN     - tkn_len - largo del token a agregar
+// @Return:
+//           tkn_compl_ok_l      = OK
+//           tkn_exist_l         = El token ya existe
+//           tkn_area_not_init_l = El area de tokens es NULL
+//           tkn_addr_oob_l      = Address out of bounds/ el largo del token es
+//                                 impar
+//           tkn_lmt_exceed_l    = Se excede el espacio disponible
+//           tkn_err_mem_alloc_l = Error en reserva de memoria para el token
+//=============================================================================
+short tkn_add( tkn_area_def** area, const char* tkn_id, void* tkn_ptr,
+               short tkn_len );
+
+//=============================================================================
+// @Method:  tkn_updt
+// @Brief:   Actualiza un token al mensaje/area de tokens.
+// @Params:  IN/OUT - area    - puntero al puntero al area de tokens
+//           IN     - tkn_id  - id del token a buscar
+//           IN     - tkn_ptr - puntero a los datos del token
+//           IN     - tkn_len - largo del token a agregar
+//           OUT    - stat    - resultado de la operacion:
+//                              tkn_compl_ok_l      = OK
+//                              tkn_not_exist_l     = El token no existe
+//                              tkn_area_not_init_l = Area de tokens es NULL
+//                              tkn_addr_oob_l      = Address out of bounds/
+//                                                    el largo del token es
+//                                                    impar
+//                              tkn_lmt_exceed_l    = Se excede el espacio
+//                                                    disponible
+// @Return:
+//           void* = puntero al token actualizado en el mensaje
+//                   (castearlo al struct del token)
+//           NULL  = (stat != tkn_compl_ok_l)
+//=============================================================================
+void* tkn_updt( tkn_area_def** area, const char* tkn_id, void* tkn_ptr,
+                short tkn_len, short* stat );
+
+//=============================================================================
+// @Method:  tkn_check_exist (uso interno de la libreria)
+// @Brief:   Valida que un token exista.
+// @Params:  IN - tkn_list - lista de tokens
+//           IN - tkn_id   - id del token a buscar
+// @Return:
+//           tkn_exist_l     = el token esta presente
+//           tkn_not_exist_l = el token no esta presente
+//=============================================================================
+short tkn_check_exist( tkn_node_def* tkn_list, const char* tkn_id );
+
+//=============================================================================
+// @Method:  tkn_node_get_id (uso interno de la libreria)
+// @Brief:   Devuelve el id del token del nodo.
+// @Params:  IN - node - nodo token
+// @Return:
+//           char* = puntero al id del token
+//=============================================================================
+char* tkn_node_get_id( tkn_node_def* node );
+
+//=============================================================================
+// @Method:  tkn_node_get_len (uso interno de la libreria)
+// @Brief:   Devuelve el largo del token del nodo.
+// @Params:  IN - node - nodo token
+// @Return:
+//           largo del token
+//=============================================================================
+short tkn_node_get_len( tkn_node_def* node, short frmt );
+
+//=============================================================================
+// @Method:  tkn_node_upd_len (uso interno de la libreria)
+// @Brief:   Actualiza el largo del token del nodo.
+// @Params:  IN/OUT - node   - nodo token
+//           IN     - newlen - nuevo largo del token
+//           IN     - frmt   - formato del token (binary_frmt_l / ascii_frmt_l)
+// @Return:
+//=============================================================================
+void tkn_node_upd_len( tkn_node_def** node, short newlen, short frmt );
+
+//=============================================================================
+// @Method:  tkn_area_get_count (uso interno de la libreria)
+// @Brief:   Devuelve la cantidad total de tokens. El total siempre es "1" mas
+//           que la cantidad total de tokens porque se suma el header.
+// @Params:  IN - area - Puntero al area de tokens
+// @Return:
+//           cantidad de tokens
+//=============================================================================
+short tkn_area_get_count( tkn_area_def* area );
+
+//=============================================================================
+// @Method:  tkn_area_get_len (uso interno de la libreria)
+// @Brief:   Devuelve el largo total del area de tokens.
+// @Params:  IN - area - Puntero al area de tokens
+// @Return:
+//           largo del area de tokens
+//=============================================================================
+short tkn_area_get_len( tkn_area_def* area );
+
+//=============================================================================
+// @Method:  tkn_node_del_at_pos (uso interno de la libreria)
+// @Brief:   Elimina de la lista de tokens el nodo de cierta posicion.
+//           (libera la memoria)
+// @Params:  IN/OUT - head_ref - puntero al puntero del inicio de la lista
+//           IN     - pos      - posicion del nodo a eliminar
+// @Return:  tkn_compl_ok_l = OK
+//           tkn_addr_oob_l = la posicion excede el total de la lista
+//=============================================================================
+short tkn_node_del_at_pos( tkn_node_def** head_ref, short pos );
+
+//=============================================================================
+// @Method:  tkn_area_upd_len (uso interno de la libreria)
+// @Brief:   Actualiza el largo del area de tokens.
+// @Params:  IN/OUT - area   - puntero al area de tokens
+//           IN     - newlen - nuevo largo del area de tokens
+// @Return:
+//           tkn_compl_ok_l  = OK
+//           tkn_not_exist_l = no hay area de tokens
+//=============================================================================
+short tkn_area_upd_len( tkn_area_def** area, short newlen );
+
+//=============================================================================
+// @Method:  tkn_area_upd_count (uso interno de la libreria)
+// @Brief:   Actualiza la cantidad total de tokens en el area.
+// @Params:  IN/OUT - area     - puntero al area de tokens
+//           IN     - newcount - nueva cantidad de tokens
+// @Return:
+//           tkn_compl_ok_l  = OK
+//           tkn_not_exist_l = no hay area de tokens
+//=============================================================================
+short tkn_area_upd_count( tkn_area_def** area, short newcount );
+
+//=============================================================================
+// @Method:  tkn_del
+// @Brief:   Borra un token del mensaje/area de tokens.
+// @Params:  IN/OUT - area   - puntero al puntero al area de tokens
+//           IN     - tkn_id - id del token a borrar
+// @Return:
+//           tkn_compl_ok_l      = OK
+//           tkn_not_exist_l     = el token no existe
+//           tkn_area_not_init_l = area de tokens es NULL
+//=============================================================================
+short tkn_del( tkn_area_def** area, const char* tkn_id );
+
+//=============================================================================
+// @Method:  tkn_area_list_reassing (uso interno de la libreria)
+// @Brief:   Reasigna las direcciones de memoria de la lista de tokens despues
+//           de actualizar o borrar algun token.
+// @Params:  IN/OUT - from      - puntero al puntero al inicio de la lista de
+//                                tokens
+//           IN     - node_from - desde que numero de nodo actualizar
+//           IN     - hdr       - puntero al header del area de tokens
+//           IN     - ofst      - ofst desde el header del mensaje
+//           IN     - frmt      - formato de tokens
+//                                (binary_frmt_l / ascii_frmt_l)
+// @Return:
+//=============================================================================
+void tkn_area_list_reassing( tkn_node_def** from, short node_from,
+                             void* hdr, short ofst, short frmt );
+
+//=============================================================================
+// @Method:  tkn_node_del_all (iso interno de la libreria)
+// @Brief:   Elimina toda la lista (libera la memoria)
+// @Params:  IN/OUT - list - lista de nodos token
+// @Return:
+//=============================================================================
+void tkn_node_del_all( tkn_node_def** list );
+
+#endif /* _TOKEN_H */

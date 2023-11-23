@@ -1,0 +1,71 @@
+
+#ifndef _CONVERT_H_
+#define _CONVERT_H_
+
+short CONVERT_str_to_short( const char* str, short begin, short len,
+                            short* dest );
+short CONVERT_str_to_int( const char* str, short begin, short len, int* dest );
+short CONVERT_str_to_long( const char* str, short begin, short len,
+                           long* dest );
+short CONVERT_str_to_llong( const char* str, short begin, short len,
+                            long long* dest );
+short CONVERT_str_to_str( const char* str, short begin, short len,
+                          char* dest );
+/* ponen los numeros en formato ASCII sin el \0 al final para no pisar datos */
+short CONVERT_short_to_str( short val, short begin, short len, char* dest );
+short CONVERT_long_to_str( long val, short begin, short len, char* dest );
+short CONVERT_llong_to_str( long long val, short begin, short len,
+                            char* dest );
+/* recortan de izquierda y derecha */
+short CONVERT_str_left( const char* str, short count, char* dest );
+short CONVERT_str_rigth( const char* str, short count, char* dest );
+#define CONVERT_str_midle FORMAT_str_to_str
+/* quitan los espacios a izquierda y derecha */
+short CONVERT_str_rtrim( char* str );
+short CONVERT_str_ltrim( char* str );
+/* Pega una cadena frmateada en memoria, es como un sprintf pero sin el NUL
+   al final */
+short CONVERT_memprintf( void* ptr, short len, const char* fmt, ... );
+/*  */
+short CONVERT_is_zero( const char* data, short datalen );
+/*  */
+short CONVERT_is_blank( const char* data, short datalen );
+/*  */
+short CONVERT_t2( const char* in_t2, char* out_t2, short out_t2_len,
+                  short cortar );
+/* copia un binario a hexa nibble by nibble */
+short CONVERT_bin_to_hex( unsigned char* src, short dest_len,
+                          unsigned char* dest );
+short CONVERT_hex_to_bin( unsigned char* src, short dest_len,
+                          unsigned char* dest );
+/* cambia espacios por ceros */
+short CONVERT_SP_To_Ceros( char* str, short len );
+/* Alinea a la  derecha*/
+short CONVERT_ralign_len( char* str, short lgth );
+/* Devuelve el primer caracter distinto dentro de una cadena*/
+char* CONVERT_DistintoDe( char* ptr, char cmp, short lgth );
+/* Se fija si son todos numeros */
+short CONVERT_IsDigit( const char* data, short len );
+/* Se fija si son todos numeros o letras */
+short CONVERT_IsAlnum( const char* data, short len );
+/* Se fija si son todas letras */
+short CONVERT_IsAlpha( const char* data, short len );
+/* Se fija si son todos numero o letras de A a la F */
+short CONVERT_IsExa( const char* data, short len );
+
+short CONVERT_GetShort( const char* data, short len );
+int CONVERT_GetInt( const char* data, short len );
+long CONVERT_GetLong( const char* data, short len );
+long long CONVERT_GetLlong( const char* data, short len );
+short CONVERT_Sustituir( char find, char replace, char* desde, short lgth );
+short CONVERT_Filename( char* oldfilename, char* filename, short maxlen );
+int CONVERT_FormatearNumero( const char* imp, short len, short dec,
+                             short miles, short cpyLen, short algn,
+                             const char* out );
+short CONVERT_str_to_upper( void* str, short begin, short len );
+short CONVERT_str_to_lower( void* str, short begin, short len );
+short CONVERT_buscar_posicion( char* ptr, char cmp, short lgth );
+void CONVERT_alinear_derecha( char* szEntrada, char* szSalida,
+                              char chComp, short shPos, short shLong );
+#endif /* _CONVERT_H_ */
+/* CONVERTH FIN */

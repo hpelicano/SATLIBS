@@ -1,0 +1,175 @@
+#ifndef _MSG_H_
+#define _MSG_H_
+
+#include "token.h"
+#include "flags.h"
+
+#ifndef _BADDLC_
+#define _BADDLC_
+#include <baddlc>
+#endif
+
+#define pstm_userdata( x ) (( x->data_flag != '0')? true:false)
+#define pstm_tkn_ofst( x ) (_OFFSET( pstm_def, srvcs ) + \
+                            (x)->num_services * sizeof( (x)->srvcs[0] ))
+#define intrn_msg_lmt_l    3980
+
+// Defines de transacciones POS
+#define  purchase_d                    "10"
+#define  pre_auth_purchase_d           "11"
+#define  csm_pre_adj_d                 "25"
+#define  pre_auth_purchase_comp_d      "12"
+#define  mail_phone_purchase_d         "13"
+#define  merch_return_d                "14"
+#define  cash_advance_d                "15"
+#define  card_verify_d                 "16"
+#define  inquiry_d                     "17"
+#define  purchase_cash_back_d          "18"
+#define  check_verify_d                "19"
+#define  check_guarantee_d             "20"
+#define  adj_purchase_d                "21"
+#define  adj_merch_return_d            "22"
+#define  adj_cash_advance_d            "23"
+#define  adj_purchase_cash_back_d      "24"
+#define  batch_totals_d                "50"
+#define  term_shift_totals_d           "51"
+#define  daily_term_totals_d           "52"
+#define  current_network_totals_d      "53"
+#define  previous_network_totals_d     "54"
+#define  service_totals_d              "55"
+#define  request_retailer_mail_d       "56"
+#define  send_mail_passthru_d          "57"
+#define  csm_pago_resumen_d            "P0"
+#define  csm_anul_pago_resumen_d       "P1"
+#define  csm_prestamo_consumo_d        "F0"
+#define  csm_anulacion_pconsumo_d      "F1"
+#define  csm_devolucion_pconsumo_d     "F2"
+#define  csm_anula_devl_psconsumo_d    "F3"
+#define  csm_prestamo_consu_inq_d      "F4"
+#define  csm_prestamo_finan_d          "F5"
+#define  csm_anula_pfinanciacion_d     "F6"
+#define  csm_prestamo_finan_inq_d      "F7"
+#define  csm_debito_automatico_d       "D0"
+#define  csm_anulacion_debito_d        "D1"
+#define  csm_compra_propina_d          "C0"
+#define  csm_veraz_ind_d               "V4"
+#define  csm_compra_pulsos_d           "A0"
+#define  csm_pulsos_test_d             "R0"
+#define  csm_pulsos_alta_d             "R1"
+#define  csm_pulsos_alta_recarga_d     "R2"
+#define  csm_pulsos_recarga_d          "R3"
+#define  csm_pulsos_anul_recarga_d     "R4"
+#define  csm_pulsos_consulta_saldo_d   "R5"
+#define  csm_pulsos_consulta_linea_d   "R6"
+#define  csm_pulsos_consulta_opera_d   "R7"
+#define  csm_pulsos_consulta_tarj_d    "R8"
+#define  csm_pulsos_consulta_pago_d    "R9"
+#define  send_mail_stored_d            "58"
+#define  csm_pedido_info_txn_qr_d      "Q1"
+#define  csm_consulta_txn_qr_d         "Q2"
+#define  csm_confirmacion_txn_qr_d     "Q3"
+#define  csm_anulazion_txn_qr_d        "Q4"
+
+// Defines de codigos de rta POS
+#define   app_balances_d                  000
+#define   app_no_balances_d               001
+#define   app_country_club_d              002
+#define   app_maybe_d                     003
+#define   app_needs_ident_d               004
+#define   app_blind_d                     005
+#define   app_vip_d                       006
+#define   app_admin_tran_d                007
+#define   app_nneg_hit_ok_d               008
+#define   app_commercial_d                009
+#define   app_admin_req_d                 999
+
+#define   dec_decline_d                   050
+#define   dec_expired_card_d              051
+#define   dec_pin_tries_exceeded_d        052
+#define   dec_no_sharing_d                053
+#define   dec_no_atalla_box_d             054
+#define   dec_invalid_tran_d              055
+#define   dec_no_support_d                056
+#define   dec_lost_or_stolen_card_d       057
+#define   dec_status_of_card_d            058
+#define   dec_restricted_card_d           059
+#define   dec_no_accts_d                  060
+#define   dec_no_pbf_d                    061
+#define   dec_pbf_update_err_d            062
+#define   dec_invalid_auth_type_d         063
+#define   dec_bad_track_d                 064
+#define   dec_adjustment_not_allwd_d      065
+#define   dec_invalid_cc_advance_inc_d    066
+#define   dec_inv_tran_date_d             067
+#define   dec_tlf_err_d                   068
+#define   dec_bad_msg_edit_d              069
+#define   dec_no_idf_d                    070
+#define   dec_inv_route_auth_d            071
+#define   dec_card_on_nneg_d              072
+#define   dec_inv_route_service_d         073
+#define   dec_unable_to_authorize_d       074
+#define   dec_invalid_pan_len_d           075
+#define   dec_low_funds_d                 076
+#define   dec_pre_auth_full_d             077
+#define   dec_duplicate_tran_d            078
+#define   dec_max_on_refund_reached_d     079
+#define   dec_max_off_refund_reached_d    080
+#define   dec_max_credit_per_refund_d     081
+#define   dec_num_times_used_d            082
+#define   dec_max_refund_credit_reached_d 083
+#define   dec_cust_selected_neg_rsn_d     084
+#define   dec_inquiry_not_allwd_d         085
+#define   dec_over_floor_limit_d          086
+#define   dec_max_num_refund_cr_d         087
+#define   dec_place_call_d                088
+#define   dec_caf_status_0_9_d            089
+#define   dec_referral_file_full_d        090
+#define   dec_neg_file_problem_d          091
+#define   dec_advance_less_than_min_d     092
+#define   dec_delinquent_d                093
+#define   dec_over_limit_table_d          094
+#define   dec_amount_over_max_d           095
+#define   dec_pin_required_d              096
+#define   dec_mod_10_check_d              097
+#define   dec_forced_post_d               098
+#define   dec_bad_pbf_status_d            099
+
+
+#define   dec_arqc_fail_d                 400
+#define   dec_hsm_param_err_d             401
+#define   dec_hsm_fail_d                  402
+#define   dec_keyi_not_found_d            403
+#define   dec_atc_chk_fail_d              404
+#define   dec_cvr_chk_fail_d              405
+#define   dec_tvr_chk_fail_d              406
+#define   dec_roc_chk_fail_d              407
+#define   dec_emv_fallback_d              408
+
+
+#define   dec_gre_no_telefono_d           500
+#define   dec_gre_no_tarjeta_d            501
+#define   dec_gre_operador_inv_d          502
+#define   dec_gre_over_limit_d            503
+#define   dec_gre_low_funds_d             504
+#define   dec_gre_cond_cde_inv_d          505
+#define   dec_gre_entry_mde_inv_d         506
+#define   dec_gre_importe_ivalido_d       507
+#define   dec_gre_subdis_inv_d            508
+#define   dec_gre_id1_inv_d               509
+#define   dec_gre_id2_inv_d               510
+#define   dec_gre_noexiste_recarga_d      511
+#define   dec_gre_recarga_sin_resp_d      512
+
+//=============================================================================
+// @Method:  calc_int_intrn_msg_lgth (VARIABLE)
+// @Brief:   Calcula el largo del mensaje interno.
+// @Params:  IN - sim  - puntero al mensaje interno
+//           IN - area - area de tokens (OPCIONAL)
+// @Return:
+//           largo del mensaje
+//           -1                = si hay error
+//=============================================================================
+short calc_int_intrn_msg_lgth( void* sim, tkn_area_def* area );
+#pragma function calc_int_intrn_msg_lgth (variable)
+
+#endif /* _MSG_H_ */

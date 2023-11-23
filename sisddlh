@@ -1,0 +1,414 @@
+/* SCHEMA PRODUCED DATE - TIME : 9/18/2017 - 15:57:15 */
+#pragma section FISERV_swt_owner
+/* Constant FISERV-SWT-OWNER created on 09/18/2017 at 15:57 */
+#define FISERV_SWT_OWNER "FISERV    "
+#pragma section FISERV_swt_number
+/* Constant FISERV-SWT-NUMBER created on 09/18/2017 at 15:57 */
+#define FISERV_SWT_NUMBER 201
+#pragma section FISERV_swt_version
+/* Constant FISERV-SWT-VERSION created on 09/18/2017 at 15:57 */
+#define FISERV_SWT_VERSION 1000
+#pragma section srv_val_ssid
+/* Definition SRV-VAL-SSID created on 09/18/2017 at 15:57 */
+/*#pragma fieldalign shared2 __srv_val_ssid
+typedef struct __srv_val_ssid
+{
+   union
+   {
+      char                            x_filler[8];
+
+      zspi_ddl_char8_def              x_owner;
+   } u_x_filler;
+   zspi_ddl_int_def                x_number;
+
+   zspi_ddl_uint_def               x_version;
+
+} srv_val_ssid_def;*/
+#define srv_val_ssid_def_Size 12
+#pragma section srv_val_external_ssid
+/* Constant SRV-VAL-EXTERNAL-SSID created on 09/18/2017 at 15:57 */
+#define SRV_VAL_EXTERNAL_SSID "FISERV.201.1000"
+#pragma section FISERV_pathw_tnm_sym_pro_name
+/* Constant FISERV-PATHW-TNM-SYM-PRO-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_PRO_NAME 1
+#pragma section FISERV_pathw_tnm_sym_que_pro_nam
+/* Constant FISERV-PATHW-TNM-SYM-QUE-PRO-NAM created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_QUE_PRO_NAM 2
+#pragma section FISERV_pathw_tnm_sym_sta_name
+/* Constant FISERV-PATHW-TNM-SYM-STA-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_STA_NAME 3
+#pragma section FISERV_pathw_tnm_sym_lin_name
+/* Constant FISERV-PATHW-TNM-SYM-LIN-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_LIN_NAME 4
+#pragma section FISERV_pathw_tnm_sym_lnk_pro_nam
+/* Constant FISERV-PATHW-TNM-SYM-LNK-PRO-NAM created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_LNK_PRO_NAM 5
+#pragma section FISERV_pathw_tnm_sym_dev_name
+/* Constant FISERV-PATHW-TNM-SYM-DEV-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_DEV_NAME 6
+#pragma section FISERV_pathw_tnm_sym_name
+/* Constant FISERV-PATHW-TNM-SYM-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYM_NAME 7
+#pragma section FISERV_pathw_tnm_dev_name
+/* Constant FISERV-PATHW-TNM-DEV-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEV_NAME 8
+#pragma section FISERV_pathw_tnm_nef_name
+/* Constant FISERV-PATHW-TNM-NEF-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEF_NAME 9
+#pragma section FISERV_pathw_tnm_audit_name
+/* Constant FISERV-PATHW-TNM-AUDIT-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_AUDIT_NAME 10
+#pragma section FISERV_pathw_tnm_port_name
+/* Constant FISERV-PATHW-TNM-PORT-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PORT_NAME 11
+#pragma section FISERV_pathw_tnm_trunk_name
+/* Constant FISERV-PATHW-TNM-TRUNK-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_TRUNK_NAME 12
+#pragma section FISERV_pathw_tnm_obj_name
+/* Constant FISERV-PATHW-TNM-OBJ-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_OBJ_NAME 13
+#pragma section FISERV_pathw_tnm_collector_name
+/* Constant FISERV-PATHW-TNM-COLLECTOR-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_COLLECTOR_NAME 14
+#pragma section FISERV_pathw_tnm_error
+/* Constant FISERV-PATHW-TNM-ERROR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ERROR 15
+#pragma section FISERV_pathw_tnm_error_detail
+/* Constant FISERV-PATHW-TNM-ERROR-DETAIL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ERROR_DETAIL 16
+#pragma section FISERV_pathw_tnm_ppd_name
+/* Constant FISERV-PATHW-TNM-PPD-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PPD_NAME 17
+#pragma section FISERV_pathw_tnm_procedure_name
+/* Constant FISERV-PATHW-TNM-PROCEDURE-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PROCEDURE_NAME 18
+#pragma section FISERV_pathw_tnm_cpu
+/* Constant FISERV-PATHW-TNM-CPU created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CPU 19
+#pragma section FISERV_pathw_tnm_pin
+/* Constant FISERV-PATHW-TNM-PIN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PIN 20
+#pragma section FISERV_pathw_tnm_char
+/* Constant FISERV-PATHW-TNM-CHAR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR 21
+#pragma section FISERV_pathw_tnm_char2
+/* Constant FISERV-PATHW-TNM-CHAR2 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR2 22
+#pragma section FISERV_pathw_tnm_char3
+/* Constant FISERV-PATHW-TNM-CHAR3 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR3 23
+#pragma section FISERV_pathw_tnm_char4
+/* Constant FISERV-PATHW-TNM-CHAR4 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR4 24
+#pragma section FISERV_pathw_tnm_char8
+/* Constant FISERV-PATHW-TNM-CHAR8 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR8 25
+#pragma section FISERV_pathw_tnm_char16
+/* Constant FISERV-PATHW-TNM-CHAR16 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR16 26
+#pragma section FISERV_pathw_tnm_char_var
+/* Constant FISERV-PATHW-TNM-CHAR-VAR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHAR_VAR 27
+#pragma section FISERV_pathw_tnm_int
+/* Constant FISERV-PATHW-TNM-INT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_INT 28
+#pragma section FISERV_pathw_tnm_int32
+/* Constant FISERV-PATHW-TNM-INT32 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_INT32 29
+#pragma section FISERV_pathw_tnm_uint
+/* Constant FISERV-PATHW-TNM-UINT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_UINT 30
+#pragma section FISERV_pathw_tnm_int64
+/* Constant FISERV-PATHW-TNM-INT64 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_INT64 31
+#pragma section FISERV_pathw_tnm_sysmsg
+/* Constant FISERV-PATHW-TNM-SYSMSG created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYSMSG 32
+#pragma section FISERV_pathw_tnm_network_cpu
+/* Constant FISERV-PATHW-TNM-NETWORK-CPU created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NETWORK_CPU 33
+#pragma section FISERV_pathw_tnm_io
+/* Constant FISERV-PATHW-TNM-IO created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_IO 34
+#pragma section FISERV_pathw_tnm_cmnd
+/* Constant FISERV-PATHW-TNM-CMND created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CMND 35
+#pragma section FISERV_pathw_tnm_prtcl_req
+/* Constant FISERV-PATHW-TNM-PRTCL-REQ created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PRTCL_REQ 36
+#pragma section FISERV_pathw_tnm_timer_typ
+/* Constant FISERV-PATHW-TNM-TIMER-TYP created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_TIMER_TYP 37
+#pragma section FISERV_pathw_tnm_takeover
+/* Constant FISERV-PATHW-TNM-TAKEOVER created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_TAKEOVER 38
+#pragma section FISERV_pathw_tnm_backup_typ
+/* Constant FISERV-PATHW-TNM-BACKUP-TYP created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_BACKUP_TYP 39
+#pragma section FISERV_pathw_tnm_tandem_subsys
+/* Constant FISERV-PATHW-TNM-TANDEM-SUBSYS created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_TANDEM_SUBSYS 40
+#pragma section FISERV_pathw_tnm_mod
+/* Constant FISERV-PATHW-TNM-MOD created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_MOD 41
+#pragma section FISERV_pathw_tnm_prtcl
+/* Constant FISERV-PATHW-TNM-PRTCL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PRTCL 42
+#pragma section FISERV_pathw_tnm_ete
+/* Constant FISERV-PATHW-TNM-ETE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ETE 43
+#pragma section FISERV_pathw_tnm_sense
+/* Constant FISERV-PATHW-TNM-SENSE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SENSE 44
+#pragma section FISERV_pathw_tnm_cp6100error
+/* Constant FISERV-PATHW-TNM-CP6100ERROR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CP6100ERROR 45
+#pragma section FISERV_pathw_tnm_hls_ret_code
+/* Constant FISERV-PATHW-TNM-HLS-RET-CODE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HLS_RET_CODE 46
+#pragma section FISERV_pathw_tnm_format
+/* Constant FISERV-PATHW-TNM-FORMAT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_FORMAT 47
+#pragma section FISERV_pathw_tnm_readtext
+/* Constant FISERV-PATHW-TNM-READTEXT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_READTEXT 48
+#pragma section FISERV_pathw_tnm_hls_serr_code
+/* Constant FISERV-PATHW-TNM-HLS-SERR-CODE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HLS_SERR_CODE 49
+#pragma section FISERV_pathw_tnm_hls_uerr_code
+/* Constant FISERV-PATHW-TNM-HLS-UERR-CODE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HLS_UERR_CODE 50
+#pragma section FISERV_pathw_tnm_failure_cause
+/* Constant FISERV-PATHW-TNM-FAILURE-CAUSE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_FAILURE_CAUSE 51
+#pragma section FISERV_pathw_tnm_symptom_string
+/* Constant FISERV-PATHW-TNM-SYMPTOM-STRING created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYMPTOM_STRING 52
+#pragma section FISERV_pathw_tnm_under_obj_name
+/* Constant FISERV-PATHW-TNM-UNDER-OBJ-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_UNDER_OBJ_NAME 53
+#pragma section FISERV_pathw_tnm_under_obj_fc
+/* Constant FISERV-PATHW-TNM-UNDER-OBJ-FC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_UNDER_OBJ_FC 54
+#pragma section FISERV_pathw_tnm_change_reason
+/* Constant FISERV-PATHW-TNM-CHANGE-REASON created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CHANGE_REASON 55
+#pragma section FISERV_pathw_tnm_util_level_cur
+/* Constant FISERV-PATHW-TNM-UTIL-LEVEL-CUR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_UTIL_LEVEL_CUR 56
+#pragma section FISERV_pathw_tnm_util_level_pre
+/* Constant FISERV-PATHW-TNM-UTIL-LEVEL-PRE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_UTIL_LEVEL_PRE 57
+#pragma section FISERV_pathw_tnm_config_report_h
+/* Constant FISERV-PATHW-TNM-CONFIG-REPORT-H created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CONFIG_REPORT_H 58
+#pragma section FISERV_pathw_tnm_config_report_l
+/* Constant FISERV-PATHW-TNM-CONFIG-REPORT-L created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CONFIG_REPORT_L 59
+#pragma section FISERV_pathw_tnm_subject_type
+/* Constant FISERV-PATHW-TNM-SUBJECT-TYPE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SUBJECT_TYPE 60
+#pragma section FISERV_pathw_tnm_trace
+/* Constant FISERV-PATHW-TNM-TRACE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_TRACE 61
+#pragma section FISERV_pathw_tnm_file_name
+/* Constant FISERV-PATHW-TNM-FILE-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_FILE_NAME 62
+#pragma section FISERV_pathw_tnm_collector
+/* Constant FISERV-PATHW-TNM-COLLECTOR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_COLLECTOR 63
+#pragma section FISERV_pathw_tnm_procedure_offse
+/* Constant FISERV-PATHW-TNM-PROCEDURE-OFFSE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PROCEDURE_OFFSE 64
+#pragma section FISERV_pathw_tnm_sys_name
+/* Constant FISERV-PATHW-TNM-SYS-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SYS_NAME 65
+#pragma section FISERV_pathw_tnm_newpro_err_left
+/* Constant FISERV-PATHW-TNM-NEWPRO-ERR-LEFT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEWPRO_ERR_LEFT 66
+#pragma section FISERV_pathw_tnm_newpro_err_righ
+/* Constant FISERV-PATHW-TNM-NEWPRO-ERR-RIGH created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEWPRO_ERR_RIGH 67
+#pragma section FISERV_pathw_tnm_newpro_err_subc
+/* Constant FISERV-PATHW-TNM-NEWPRO-ERR-SUBC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEWPRO_ERR_SUBC 68
+#pragma section FISERV_pathw_tnm_lu62_verb
+/* Constant FISERV-PATHW-TNM-LU62-VERB created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_VERB 69
+#pragma section FISERV_pathw_tnm_lu62_rc
+/* Constant FISERV-PATHW-TNM-LU62-RC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_RC 70
+#pragma section FISERV_pathw_tnm_lu62_rcd
+/* Constant FISERV-PATHW-TNM-LU62-RCD created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_RCD 71
+#pragma section FISERV_pathw_tnm_lu62_irc
+/* Constant FISERV-PATHW-TNM-LU62-IRC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_IRC 72
+#pragma section FISERV_pathw_tnm_lu62_ircd
+/* Constant FISERV-PATHW-TNM-LU62-IRCD created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_IRCD 73
+#pragma section FISERV_pathw_tnm_lu62_rcd_map
+/* Constant FISERV-PATHW-TNM-LU62-RCD-MAP created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LU62_RCD_MAP 74
+#pragma section FISERV_pathw_tnm_userdata_cnt
+/* Constant FISERV-PATHW-TNM-USERDATA-CNT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_USERDATA_CNT 75
+#pragma section FISERV_pathw_tnm_userdata_len
+/* Constant FISERV-PATHW-TNM-USERDATA-LEN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_USERDATA_LEN 76
+#pragma section FISERV_pathw_tnm_ctsreq
+/* Constant FISERV-PATHW-TNM-CTSREQ created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSREQ 77
+#pragma section FISERV_pathw_tnm_ctsresperr
+/* Constant FISERV-PATHW-TNM-CTSRESPERR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSRESPERR 78
+#pragma section FISERV_pathw_tnm_ctsvsn
+/* Constant FISERV-PATHW-TNM-CTSVSN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSVSN 79
+#pragma section FISERV_pathw_tnm_ctserrdetail
+/* Constant FISERV-PATHW-TNM-CTSERRDETAIL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSERRDETAIL 80
+#pragma section FISERV_pathw_tnm_ctserrtype
+/* Constant FISERV-PATHW-TNM-CTSERRTYPE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSERRTYPE 81
+#pragma section FISERV_pathw_tnm_ctssubsyserr
+/* Constant FISERV-PATHW-TNM-CTSSUBSYSERR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSSUBSYSERR 82
+#pragma section FISERV_pathw_tnm_ctsdetailmisc
+/* Constant FISERV-PATHW-TNM-CTSDETAILMISC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSDETAILMISC 83
+#pragma section FISERV_pathw_tnm_duplex
+/* Constant FISERV-PATHW-TNM-DUPLEX created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DUPLEX 84
+#pragma section FISERV_pathw_tnm_lcladdr
+/* Constant FISERV-PATHW-TNM-LCLADDR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LCLADDR 85
+#pragma section FISERV_pathw_tnm_remaddr
+/* Constant FISERV-PATHW-TNM-REMADDR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_REMADDR 86
+#pragma section FISERV_pathw_tnm_lclappl
+/* Constant FISERV-PATHW-TNM-LCLAPPL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_LCLAPPL 87
+#pragma section FISERV_pathw_tnm_remappl
+/* Constant FISERV-PATHW-TNM-REMAPPL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_REMAPPL 88
+#pragma section FISERV_pathw_tnm_ctsattr
+/* Constant FISERV-PATHW-TNM-CTSATTR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_CTSATTR 89
+#pragma section FISERV_pathw_tnm_sta_disp
+/* Constant FISERV-PATHW-TNM-STA-DISP created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_STA_DISP 90
+#pragma section FISERV_pathw_tnm_procreate_error
+/* Constant FISERV-PATHW-TNM-PROCREATE-ERROR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PROCREATE_ERROR 91
+#pragma section FISERV_pathw_tnm_dpin
+/* Constant FISERV-PATHW-TNM-DPIN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DPIN 92
+#pragma section FISERV_pathw_tnm_proc_desc
+/* Constant FISERV-PATHW-TNM-PROC-DESC created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PROC_DESC 93
+#pragma section FISERV_pathw_tnm_filename
+/* Constant FISERV-PATHW-TNM-FILENAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_FILENAME 94
+#pragma section FISERV_pathw_tnm_srvc_name
+/* Constant FISERV-PATHW-TNM-SRVC-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SRVC_NAME 95
+#pragma section FISERV_pathw_tnm_misc_type
+/* Constant FISERV-PATHW-TNM-MISC-TYPE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_MISC_TYPE 96
+#pragma section FISERV_pathw_tnm_error_detail1
+/* Constant FISERV-PATHW-TNM-ERROR-DETAIL1 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ERROR_DETAIL1 97
+#pragma section FISERV_pathw_tnm_error_detail2
+/* Constant FISERV-PATHW-TNM-ERROR-DETAIL2 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ERROR_DETAIL2 98
+#pragma section FISERV_pathw_tnm_obj_ena_dis
+/* Constant FISERV-PATHW-TNM-OBJ-ENA-DIS created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_OBJ_ENA_DIS 99
+#pragma section FISERV_pathw_tnm_oncf_rspwrn
+/* Constant FISERV-PATHW-TNM-ONCF-RSPWRN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ONCF_RSPWRN 100
+#pragma section FISERV_pathw_tnm_obj_type
+/* Constant FISERV-PATHW-TNM-OBJ-TYPE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_OBJ_TYPE 101
+#pragma section FISERV_pathw_tnm_nefrecinvld
+/* Constant FISERV-PATHW-TNM-NEFRECINVLD created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEFRECINVLD 102
+#pragma section FISERV_pathw_tnm_nefrecval
+/* Constant FISERV-PATHW-TNM-NEFRECVAL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_NEFRECVAL 103
+#pragma section FISERV_pathw_tnm_dest_srvtyp
+/* Constant FISERV-PATHW-TNM-DEST-SRVTYP created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_SRVTYP 104
+#pragma section FISERV_pathw_tnm_dest_tnode
+/* Constant FISERV-PATHW-TNM-DEST-TNODE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_TNODE 105
+#pragma section FISERV_pathw_tnm_dest_frozen
+/* Constant FISERV-PATHW-TNM-DEST-FROZEN created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_FROZEN 106
+#pragma section FISERV_pathw_tnm_dest_adapt
+/* Constant FISERV-PATHW-TNM-DEST-ADAPT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_ADAPT 107
+#pragma section FISERV_pathw_tnm_dest_qmt
+/* Constant FISERV-PATHW-TNM-DEST-QMT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_QMT 108
+#pragma section FISERV_pathw_tnm_dest_qat
+/* Constant FISERV-PATHW-TNM-DEST-QAT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_QAT 109
+#pragma section FISERV_pathw_tnm_dest_qmi
+/* Constant FISERV-PATHW-TNM-DEST-QMI created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_QMI 110
+#pragma section FISERV_pathw_tnm_ossparam_error
+/* Constant FISERV-PATHW-TNM-OSSPARAM-ERROR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_OSSPARAM_ERROR 111
+#pragma section FISERV_pathw_tnm_spawn_zerrno
+/* Constant FISERV-PATHW-TNM-SPAWN-ZERRNO created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_SPAWN_ZERRNO 112
+#pragma section FISERV_pathw_tnm_http_status
+/* Constant FISERV-PATHW-TNM-HTTP-STATUS created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HTTP_STATUS 113
+#pragma section FISERV_pathw_tnm_http_status_d1
+/* Constant FISERV-PATHW-TNM-HTTP-STATUS-D1 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HTTP_STATUS_D1 114
+#pragma section FISERV_pathw_tnm_http_status_d2
+/* Constant FISERV-PATHW-TNM-HTTP-STATUS-D2 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_HTTP_STATUS_D2 115
+#pragma section FISERV_pathw_tnm_error_cv_lgth
+/* Constant FISERV-PATHW-TNM-ERROR-CV-LGTH created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_ERROR_CV_LGTH 116
+#pragma section FISERV_pathw_tnm_dest_fail
+/* Constant FISERV-PATHW-TNM-DEST-FAIL created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_DEST_FAIL 117
+#pragma section FISERV_pathw_tnm_payl_status
+/* Constant FISERV-PATHW-TNM-PAYL-STATUS created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PAYL_STATUS 118
+#pragma section FISERV_pathw_tnm_payl_status_d1
+/* Constant FISERV-PATHW-TNM-PAYL-STATUS-D1 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PAYL_STATUS_D1 119
+#pragma section FISERV_pathw_tnm_payl_status_d2
+/* Constant FISERV-PATHW-TNM-PAYL-STATUS-D2 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_PAYL_STATUS_D2 120
+#pragma section FISERV_pathw_tnm_mhdr_status
+/* Constant FISERV-PATHW-TNM-MHDR-STATUS created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TNM_MHDR_STATUS 121
+#pragma section FISERV_pathw_tkn_char_var
+/* Token Code FISERV-PATHW-TKN-CHAR-VAR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_CHAR_VAR 33488923LU
+#pragma section FISERV_pathw_tkn_int
+/* Token Code FISERV-PATHW-TKN-INT created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_INT 33685532LU
+#pragma section FISERV_pathw_tkn_error
+/* Token Code FISERV-PATHW-TKN-ERROR created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_ERROR 33685519LU
+#pragma section FISERV_pathw_tkn_sym_sta_name
+/* Token Code FISERV-PATHW-TKN-SYM-STA-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_SYM_STA_NAME 33488899LU
+#pragma section FISERV_pathw_tkn_file_name
+/* Token Code FISERV-PATHW-TKN-FILE-NAME created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_FILE_NAME 337117246LU
+#pragma section FISERV_pathw_tkn_trace
+/* Token Code FISERV-PATHW-TKN-TRACE created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_TRACE 50593853LU
+#pragma section FISERV_pathw_tkn_int32
+/* Token Code FISERV-PATHW-TKN-INT32 created on 09/18/2017 at 15:57 */
+#define FISERV_PATHW_TKN_INT32 50593821LU
